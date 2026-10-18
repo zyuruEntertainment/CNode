@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 cmake_policy(SET CMP0169 OLD)
 
-project(CNode LANGUAGES CXX)
+project(CNode LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -161,6 +161,20 @@ message(STATUS
     "CNode: Found ${CNODE_REGISTRATION_COUNT} feature registration headers"
 )
 
+FetchContent_Declare(
+    glad
+    GIT_REPOSITORY https://github.com/Dav1dde/glad.git
+    GIT_TAG v2.0.8
+    SOURCE_SUBDIR cmake
+)
+
+FetchContent_MakeAvailable(glad)
+
+glad_add_library(glad_gl_core_33
+    REPRODUCIBLE
+    API gl:core=3.3
+)
+
 add_executable(CNode
     main.cpp
 
@@ -183,6 +197,10 @@ add_executable(CNode
     src/tab/windows/window_registry.cpp
     src/tab/windows/window_instance_manager.cpp
 
+    src/tab/windows/scene_editor/scene_editor.cpp
+    src/tab/windows/scene_editor/scene_camera.cpp
+    src/tab/windows/scene_editor/scene_renderer.cpp
+
     "${CNODE_REGISTRATION_SOURCE}"
 
     "${IMGUI_DIR}/imgui.cpp"
@@ -194,6 +212,8 @@ add_executable(CNode
     "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
 )
 
+target_compile_definitions(CNode PRIVATE GLFW_INCLUDE_NONE)
+
 target_include_directories(CNode PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
@@ -204,6 +224,7 @@ target_include_directories(CNode PRIVATE
 target_link_libraries(CNode PRIVATE
     glfw
     OpenGL::GL
+    glad_gl_core_33
 )
 
 set_property(

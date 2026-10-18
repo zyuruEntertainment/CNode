@@ -1,11 +1,13 @@
-
 #include "scene/window/editor.h"
 #include "scene/window/logo.h"
 #include "registration/registration.h"
+#include "tab/windows/scene_editor/scene_editor.h"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
+
+#include <glad/gl.h>
 
 #include <iostream>
 
@@ -57,6 +59,19 @@ namespace CNode
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
 
+        if (!gladLoadGL(
+            reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)
+        ))
+        {
+            std::cerr << "CNode: Failed to initialize GLAD.\n";
+
+            glfwDestroyWindow(window);
+            window = nullptr;
+
+            glfwTerminate();
+            return false;
+        }
+
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
 
@@ -65,7 +80,6 @@ namespace CNode
 
         ImGui::StyleColorsDark();
 
-        // Load font Inter.
         if (!editorFont.Load())
         {
             std::cerr
@@ -131,7 +145,6 @@ namespace CNode
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Apply Inter to all editor UI.
         editorFont.Apply();
 
         CNode::DrawRegisteredWindows();
@@ -157,6 +170,8 @@ namespace CNode
     {
         if (ImGui::GetCurrentContext())
         {
+            CNode::ShutdownSceneEditor();
+
             ImGui_ImplOpenGL3_Shutdown();
             ImGui_ImplGlfw_Shutdown();
 
@@ -171,10 +186,12 @@ namespace CNode
             window = nullptr;
         }
 
-        if (initialized)
+        if (glfwGetCurrentContext())
         {
-            glfwTerminate();
-            initialized = false;
+            glfwMakeContextCurrent(nullptr);
         }
+
+        glfwTerminate();
+        initialized = false;
     }
 }
