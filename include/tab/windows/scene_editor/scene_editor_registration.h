@@ -1,6 +1,6 @@
 #pragma once
 
-#include "registration/registration_data.h"
+#include "tab/windows/window_registry.h"
 #include "tab/windows/scene_editor/scene_editor.h"
 
 namespace CNode
