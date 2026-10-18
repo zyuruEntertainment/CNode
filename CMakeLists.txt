@@ -51,6 +51,14 @@ file(
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*_registration.h"
 )
 
+list(LENGTH CNODE_REGISTRATION_HEADERS CNODE_REGISTRATION_COUNT)
+
+if(CNODE_REGISTRATION_COUNT EQUAL 0)
+    message(FATAL_ERROR
+        "CNode: No feature registration headers found in include/"
+    )
+endif()
+
 set(CNODE_GENERATED_DIR
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
 )
@@ -148,8 +156,6 @@ file(
     CONTENT "${CNODE_REGISTRATION_CONTENT}"
     @ONLY
 )
-
-list(LENGTH CNODE_REGISTRATION_HEADERS CNODE_REGISTRATION_COUNT)
 
 message(STATUS
     "CNode: Found ${CNODE_REGISTRATION_COUNT} feature registration headers"
