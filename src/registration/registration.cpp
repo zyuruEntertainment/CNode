@@ -2,20 +2,31 @@
 #include "registration/registration_data.h"
 #include "registration/window_docking.h"
 
+#include "tab/windows/window_registry.h"
+#include "tab/windows/window_instance_manager.h"
+
 #include "imgui.h"
 
 #include <algorithm>
 #include <cstdlib>
+#include <ctime>
 
 namespace CNode
 {
     void DrawRegisteredWindows()
     {
+        static const bool randomSeeded = []
+            {
+                std::srand(static_cast<unsigned int>(std::time(nullptr)));
+                return true;
+            }();
+
+        (void)randomSeeded;
+
         Windows();
 
         const auto& types = GetRegisteredWindows();
 
-        // Menu untuk membuka window yang terdaftar.
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("Windows"))
@@ -38,7 +49,6 @@ namespace CNode
             ImGui::EndMainMenuBar();
         }
 
-        // Dockspace tetap tersedia agar window bisa di-dock manual.
         DrawEditorDockspace();
 
         auto& instances = GetWindowInstances();
@@ -60,9 +70,6 @@ namespace CNode
             if (type == types.end() || !type->draw)
                 continue;
 
-            // Posisi awal acak di area viewport.
-            // ImGuiCond_FirstUseEver membuat posisi tidak berubah
-            // setiap frame setelah window pertama kali dibuat.
             ImGuiViewport* viewport = ImGui::GetMainViewport();
 
             const float maxX =
@@ -88,7 +95,6 @@ namespace CNode
                 viewport->WorkPos.y + randomY * maxY
             );
 
-            // Mencegah window baru langsung masuk dockspace.
             ImGui::SetNextWindowDockID(
                 0,
                 ImGuiCond_FirstUseEver
@@ -110,17 +116,6 @@ namespace CNode
             );
         }
 
-        // Hapus instance yang ditutup setelah seluruh window selesai digambar.
-        instances.erase(
-            std::remove_if(
-                instances.begin(),
-                instances.end(),
-                [](const WindowInstance& instance)
-                {
-                    return !instance.open;
-                }
-            ),
-            instances.end()
-        );
+        RemoveClosedWindowInstances();
     }
 }

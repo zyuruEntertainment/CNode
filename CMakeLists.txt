@@ -179,6 +179,10 @@ add_executable(CNode
     src/tab/windows/object_list/object_list.cpp
     src/tab/windows/project_setting/project_setting.cpp
 
+    src/tab/windows/window_id.cpp
+    src/tab/windows/window_registry.cpp
+    src/tab/windows/window_instance_manager.cpp
+
     "${CNODE_REGISTRATION_SOURCE}"
 
     "${IMGUI_DIR}/imgui.cpp"

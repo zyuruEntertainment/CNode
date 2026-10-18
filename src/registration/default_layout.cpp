@@ -1,6 +1,5 @@
-
 #include "registration/default_layout.h"
-#include "registration/registration_data.h"
+#include "tab/windows/window_instance_manager.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
