@@ -1,13 +1,39 @@
+
+# IDE
 .vs/
-**/.vs/
-build/
-out/
-*.exe
-*.dll
-*.lib
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build output
+/build/
+/out/
+/cmake-build-*/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/compile_commands.json
+**/Testing/
+
+# Compiler-generated files
 *.obj
+*.o
 *.pdb
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
+*.ilk
+*.pch
+*.idb
+*.tlog/
+
+# CNode runtime/editor state
+/imgui.ini
+/.cnode_default_layout_v1
+
+# Generated build log
+/glad-build.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
