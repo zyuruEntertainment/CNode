@@ -1,3 +1,4 @@
+
 #include "tab/windows/scene_editor/scene_axis.h"
 
 namespace CNode
@@ -8,26 +9,37 @@ namespace CNode
 
         constexpr float axisLength = 10.0f;
 
-        // x axis: merah
+        // X axis: merah
         vertices.push_back({
             { -axisLength, 0.0f, 0.0f },
-            { 0.65f, 0.25f, 0.25f }
+            { 0.85f, 0.20f, 0.20f }
             });
 
         vertices.push_back({
             { axisLength, 0.0f, 0.0f },
-            { 0.65f, 0.25f, 0.25f }
+            { 0.85f, 0.20f, 0.20f }
             });
 
-        // z axis: biru
+        // Y axis: hijau (vertikal)
+        vertices.push_back({
+            { 0.0f, -axisLength, 0.0f },
+            { 0.20f, 0.85f, 0.30f }
+            });
+
+        vertices.push_back({
+            { 0.0f, axisLength, 0.0f },
+            { 0.20f, 0.85f, 0.30f }
+            });
+
+        // Z axis: biru
         vertices.push_back({
             { 0.0f, 0.0f, -axisLength },
-            { 0.20f, 0.40f, 0.65f }
+            { 0.20f, 0.40f, 0.90f }
             });
 
         vertices.push_back({
             { 0.0f, 0.0f, axisLength },
-            { 0.20f, 0.40f, 0.65f }
+            { 0.20f, 0.40f, 0.90f }
             });
 
         return vertices;
