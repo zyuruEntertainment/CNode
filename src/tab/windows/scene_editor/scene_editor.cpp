@@ -2,6 +2,7 @@
 #include "tab/windows/scene_editor/scene_camera.h"
 #include "tab/windows/scene_editor/scene_renderer.h"
 #include "tab/windows/scene_editor/navigation/orbit_navigation.h"
+#include "tab/windows/scene_editor/navigation/zoom_navigation.h"
 
 #include "imgui.h"
 
@@ -23,6 +24,7 @@ namespace CNode
             SceneCamera camera;
             SceneRenderer renderer;
             OrbitNavigation orbitNavigation;
+            ZoomNavigation zoomNavigation;
         };
 
         // Setiap instance Scene Editor memiliki kamera,
@@ -153,14 +155,21 @@ namespace CNode
                 ImVec2(1.0f, 0.0f)
             );
 
-            // Dapatkan jendela GLFW yang sedang aktif.
             GLFWwindow* window =
                 glfwGetCurrentContext();
+
+            const bool viewportHovered =
+                ImGui::IsItemHovered();
 
             state->orbitNavigation.Update(
                 state->camera,
                 window,
-                ImGui::IsItemHovered()
+                viewportHovered
+            );
+
+            state->zoomNavigation.Update(
+                state->camera,
+                viewportHovered
             );
         }
 
