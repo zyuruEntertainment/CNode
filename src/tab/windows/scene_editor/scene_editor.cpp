@@ -1,6 +1,7 @@
 #include "tab/windows/scene_editor/scene_editor.h"
 #include "tab/windows/scene_editor/scene_camera.h"
 #include "tab/windows/scene_editor/scene_renderer.h"
+#include "tab/windows/scene_editor/navigation/orbit_navigation.h"
 
 #include "imgui.h"
 
@@ -18,6 +19,7 @@ namespace CNode
         {
             SceneCamera camera;
             SceneRenderer renderer;
+            OrbitNavigation orbitNavigation;
         };
 
         std::unordered_map<
@@ -115,6 +117,11 @@ namespace CNode
                 ),
                 ImVec2(0.0f, 1.0f),
                 ImVec2(1.0f, 0.0f)
+            );
+
+            state->orbitNavigation.Update(
+                state->camera,
+                ImGui::IsItemHovered()
             );
         }
 
