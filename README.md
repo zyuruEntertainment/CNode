@@ -1,6 +1,12 @@
-# CNode Engine
+<p align="center">
+  <img src="https://raw.githubusercontent.com/zyuruEntertainment/CNode/main/assets/img/Logo.png" alt="CNode Engine Logo" width="180">
+</p>
 
-**A Node-Based Game Engine Built with C++**
+<h1 align="center">CNode Engine</h1>
+
+<p align="center">
+  <strong>A Node-Based Game Engine Built with C++</strong>
+</p>
 
 CNode is an independent game engine project built with C++, focused on visual node-based programming, modular architecture, and customizable development workflows.
 
