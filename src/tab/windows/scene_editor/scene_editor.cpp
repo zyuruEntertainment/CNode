@@ -5,7 +5,10 @@
 
 #include "imgui.h"
 
+#include <GLFW/glfw3.h>
+
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -22,12 +25,16 @@ namespace CNode
             OrbitNavigation orbitNavigation;
         };
 
+        // Setiap instance Scene Editor memiliki kamera,
+        // renderer, dan framebuffer miliknya sendiri.
         std::unordered_map<
             std::string,
             std::unique_ptr<SceneEditorState>
         > sceneEditors;
 
-        SceneEditorState* GetSceneEditorState(const char* title)
+        SceneEditorState* GetSceneEditorState(
+            const char* title
+        )
         {
             if (!title || !*title)
                 return nullptr;
@@ -35,13 +42,19 @@ namespace CNode
             auto& state = sceneEditors[title];
 
             if (!state)
-                state = std::make_unique<SceneEditorState>();
+            {
+                state =
+                    std::make_unique<SceneEditorState>();
+            }
 
             return state.get();
         }
     }
 
-    void DrawSceneEditor(const char* title, bool* open)
+    void DrawSceneEditor(
+        const char* title,
+        bool* open
+    )
     {
         if (!title || !*title)
             return;
@@ -56,15 +69,8 @@ namespace CNode
             return;
         }
 
-        const ImVec2 available = ImGui::GetContentRegionAvail();
-
-        if (available.x <= 1.0f || available.y <= 1.0f)
-        {
-            ImGui::End();
-            return;
-        }
-
-        SceneEditorState* state = GetSceneEditorState(title);
+        SceneEditorState* state =
+            GetSceneEditorState(title);
 
         if (!state)
         {
@@ -72,6 +78,17 @@ namespace CNode
                 "Failed to create the scene editor state."
             );
 
+            ImGui::End();
+            return;
+        }
+
+        // Ukuran area konten aktual jendela ini.
+        const ImVec2 available =
+            ImGui::GetContentRegionAvail();
+
+        if (available.x <= 1.0f ||
+            available.y <= 1.0f)
+        {
             ImGui::End();
             return;
         }
@@ -87,21 +104,38 @@ namespace CNode
             return;
         }
 
-        // Gunakan ukuran area 3D milik jendela ini.
-        const int width = std::max(
+        // Ukuran logis untuk tampilan ImGui.
+        const float displayWidth = available.x;
+        const float displayHeight = available.y;
+
+        // Ukuran framebuffer aktual untuk OpenGL.
+        const ImGuiIO& io = ImGui::GetIO();
+
+        const float scaleX =
+            std::max(io.DisplayFramebufferScale.x, 1.0f);
+
+        const float scaleY =
+            std::max(io.DisplayFramebufferScale.y, 1.0f);
+
+        const int renderWidth = std::max(
             1,
-            static_cast<int>(available.x)
+            static_cast<int>(
+                std::lround(displayWidth * scaleX)
+                )
         );
 
-        const int height = std::max(
+        const int renderHeight = std::max(
             1,
-            static_cast<int>(available.y)
+            static_cast<int>(
+                std::lround(displayHeight * scaleY)
+                )
         );
 
+        // Renderer hanya mengubah framebuffer milik state ini.
         state->renderer.Render(
             state->camera,
-            width,
-            height
+            renderWidth,
+            renderHeight
         );
 
         const unsigned int texture =
@@ -112,15 +146,20 @@ namespace CNode
             ImGui::Image(
                 (ImTextureID)(intptr_t)texture,
                 ImVec2(
-                    static_cast<float>(width),
-                    static_cast<float>(height)
+                    displayWidth,
+                    displayHeight
                 ),
                 ImVec2(0.0f, 1.0f),
                 ImVec2(1.0f, 0.0f)
             );
 
+            // Dapatkan jendela GLFW yang sedang aktif.
+            GLFWwindow* window =
+                glfwGetCurrentContext();
+
             state->orbitNavigation.Update(
                 state->camera,
+                window,
                 ImGui::IsItemHovered()
             );
         }

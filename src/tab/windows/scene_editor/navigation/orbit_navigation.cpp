@@ -1,5 +1,7 @@
 #include "tab/windows/scene_editor/navigation/orbit_navigation.h"
 
+#include "core/input/cursor_visibility.h"
+
 #include "imgui.h"
 
 #include <algorithm>
@@ -9,6 +11,7 @@ namespace CNode
 {
     void OrbitNavigation::Update(
         SceneCamera& camera,
+        GLFWwindow* window,
         bool viewportHovered
     )
     {
@@ -16,18 +19,30 @@ namespace CNode
         constexpr float minRadius = 0.1f;
         constexpr float minPitch = -1.55334306f;
         constexpr float maxPitch = 1.55334306f;
-        constexpr float pi = 3.14159265358979323846f;
 
-        // Orbit hanya boleh dimulai dari viewport 3D.
+        // Orbit hanya dimulai jika klik terjadi di viewport 3D.
         if (ImGui::IsMouseClicked(orbitButton) &&
             viewportHovered)
         {
             orbiting = true;
+
+            CursorVisibility::SetCaptured(
+                window,
+                true
+            );
         }
 
-        // Berhenti saat tombol tengah dilepas.
+        // Saat tombol tengah dilepas, pulihkan kursor.
         if (!ImGui::IsMouseDown(orbitButton))
         {
+            if (orbiting)
+            {
+                CursorVisibility::SetCaptured(
+                    window,
+                    false
+                );
+            }
+
             orbiting = false;
             return;
         }
@@ -37,7 +52,7 @@ namespace CNode
 
         const ImGuiIO& io = ImGui::GetIO();
 
-        // Offset kamera relatif terhadap titik target.
+        // Posisi kamera relatif terhadap target orbit.
         const float offsetX =
             camera.position[0] - camera.target[0];
 
@@ -56,8 +71,10 @@ namespace CNode
         if (radius < minRadius)
             return;
 
-        // Konversi posisi kamera menjadi sudut orbit.
-        float yaw = std::atan2(offsetZ, offsetX);
+        float yaw = std::atan2(
+            offsetZ,
+            offsetX
+        );
 
         float pitch = std::asin(
             std::clamp(
@@ -67,11 +84,11 @@ namespace CNode
             )
         );
 
-        // Mouse horizontal mengubah yaw.
-        yaw -= io.MouseDelta.x * sensitivity;
+        // Arah horizontal dibalik.
+        yaw += io.MouseDelta.x * sensitivity;
 
-        // Mouse vertikal mengubah pitch.
-        pitch -= io.MouseDelta.y * sensitivity;
+        // Arah vertikal dibalik.
+        pitch += io.MouseDelta.y * sensitivity;
 
         pitch = std::clamp(
             pitch,
@@ -79,7 +96,6 @@ namespace CNode
             maxPitch
         );
 
-        // Kembalikan sudut menjadi posisi kamera.
         const float horizontalRadius =
             radius * std::cos(pitch);
 

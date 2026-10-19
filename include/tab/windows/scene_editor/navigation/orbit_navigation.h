@@ -2,6 +2,8 @@
 
 #include "tab/windows/scene_editor/scene_camera.h"
 
+#include <GLFW/glfw3.h>
+
 namespace CNode
 {
     class OrbitNavigation
@@ -9,6 +11,7 @@ namespace CNode
     public:
         void Update(
             SceneCamera& camera,
+            GLFWwindow* window,
             bool viewportHovered
         );
 

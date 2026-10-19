@@ -187,7 +187,6 @@ add_executable(CNode
     src/registration/window_docking.cpp
     src/registration/default_layout.cpp
 
-    src/tab/windows/scene_editor/scene_editor.cpp
     src/tab/windows/inspector/inspector.cpp
     src/tab/windows/node_graph/node_graph.cpp
     src/tab/windows/object_list/object_list.cpp
@@ -203,6 +202,8 @@ add_executable(CNode
     src/tab/windows/scene_editor/scene_axis.cpp
     src/tab/windows/scene_editor/scene_renderer.cpp
     src/tab/windows/scene_editor/navigation/orbit_navigation.cpp
+
+    src/core/input/cursor_visibility.cpp
 
     "${CNODE_REGISTRATION_SOURCE}"
 
