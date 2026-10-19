@@ -1,3 +1,4 @@
+
 #include "tab/windows/scene_editor/navigation/orbit_navigation.h"
 
 #include "core/input/cursor_visibility.h"
@@ -19,20 +20,28 @@ namespace CNode
         constexpr float minRadius = 0.1f;
         constexpr float minPitch = -1.55334306f;
         constexpr float maxPitch = 1.55334306f;
+        constexpr int startupFramesToIgnore = 2;
 
-        // Orbit hanya dimulai jika klik terjadi di viewport 3D.
+        // Mulai orbit hanya jika klik terjadi di viewport.
         if (ImGui::IsMouseClicked(orbitButton) &&
-            viewportHovered)
+            viewportHovered &&
+            !orbiting)
         {
             orbiting = true;
+
+            // Hindari delta mouse akibat pergantian mode kursor.
+            ignoreMouseDeltaFrames = startupFramesToIgnore;
 
             CursorVisibility::SetCaptured(
                 window,
                 true
             );
+
+            // Jangan memutar kamera pada frame klik awal.
+            return;
         }
 
-        // Saat tombol tengah dilepas, pulihkan kursor.
+        // Pulihkan kursor ketika tombol tengah dilepas.
         if (!ImGui::IsMouseDown(orbitButton))
         {
             if (orbiting)
@@ -44,13 +53,28 @@ namespace CNode
             }
 
             orbiting = false;
+            ignoreMouseDeltaFrames = 0;
             return;
         }
 
         if (!orbiting)
             return;
 
+        // Abaikan frame awal setelah kursor ditangkap.
+        if (ignoreMouseDeltaFrames > 0)
+        {
+            --ignoreMouseDeltaFrames;
+            return;
+        }
+
         const ImGuiIO& io = ImGui::GetIO();
+
+        const float deltaX = io.MouseDelta.x;
+        const float deltaY = io.MouseDelta.y;
+
+        // Tidak ada gerakan mouse, tidak perlu menghitung ulang kamera.
+        if (deltaX == 0.0f && deltaY == 0.0f)
+            return;
 
         // Posisi kamera relatif terhadap target orbit.
         const float offsetX =
@@ -84,11 +108,11 @@ namespace CNode
             )
         );
 
-        // Arah horizontal dibalik.
-        yaw += io.MouseDelta.x * sensitivity;
+        // Rotasi horizontal.
+        yaw += deltaX * sensitivity;
 
-        // Arah vertikal dibalik.
-        pitch += io.MouseDelta.y * sensitivity;
+        // Rotasi vertikal.
+        pitch += deltaY * sensitivity;
 
         pitch = std::clamp(
             pitch,
