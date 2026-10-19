@@ -1,3 +1,4 @@
+
 #include "tab/windows/scene_editor/navigation/zoom_navigation.h"
 
 #include "imgui.h"
@@ -12,6 +13,10 @@ namespace CNode
         bool viewportHovered
     )
     {
+        // Jangan zoom ketika tombol tengah dipakai untuk orbit.
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Middle))
+            return;
+
         if (!viewportHovered)
             return;
 
