@@ -8,6 +8,7 @@ namespace CNode
     {
     public:
         bool Initialize();
+
         void Render(
             const SceneCamera& camera,
             int width,
@@ -20,21 +21,33 @@ namespace CNode
         bool IsInitialized() const;
 
     private:
-        bool CreateFramebuffer(int width, int height);
-        bool CreateGrid();
         bool CreateShader();
+        bool CreateGrid();
+        bool CreateAxis();
+        bool CreateLineBuffer(
+            const void* data,
+            int vertexCount,
+            unsigned int& vertexArray,
+            unsigned int& vertexBuffer
+        );
+        bool CreateFramebuffer(int width, int height);
 
         unsigned int framebuffer = 0;
         unsigned int colorTexture = 0;
         unsigned int depthBuffer = 0;
 
-        unsigned int vertexArray = 0;
-        unsigned int vertexBuffer = 0;
         unsigned int shaderProgram = 0;
+
+        unsigned int gridVertexArray = 0;
+        unsigned int gridVertexBuffer = 0;
+        int gridVertexCount = 0;
+
+        unsigned int axisVertexArray = 0;
+        unsigned int axisVertexBuffer = 0;
+        int axisVertexCount = 0;
 
         int framebufferWidth = 0;
         int framebufferHeight = 0;
-        int vertexCount = 0;
 
         bool initialized = false;
     };

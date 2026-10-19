@@ -1,11 +1,12 @@
 #include "tab/windows/scene_editor/scene_renderer.h"
+#include "tab/windows/scene_editor/scene_grid.h"
+#include "tab/windows/scene_editor/scene_axis.h"
 
 #define NOMINMAX
 #include <glad/gl.h>
 
-#include <cstddef>
 #include <algorithm>
-#include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <vector>
 
@@ -13,36 +14,12 @@ namespace CNode
 {
     namespace
     {
-        struct GridVertex
-        {
-            float position[3];
-            float color[3];
-        };
-
-        void AddLine(
-            std::vector<GridVertex>& vertices,
-            float x1, float y1, float z1,
-            float x2, float y2, float z2,
-            float r, float g, float b
-        )
-        {
-            vertices.push_back({
-                { x1, y1, z1 },
-                { r, g, b }
-                });
-
-            vertices.push_back({
-                { x2, y2, z2 },
-                { r, g, b }
-                });
-        }
-
         unsigned int CompileShader(
             unsigned int type,
-            const char* source
-        )
+            const char* source)
         {
             const unsigned int shader = glCreateShader(type);
+
             glShaderSource(shader, 1, &source, nullptr);
             glCompileShader(shader);
 
@@ -52,6 +29,7 @@ namespace CNode
             if (!success)
             {
                 char log[1024] = {};
+
                 glGetShaderInfoLog(
                     shader,
                     sizeof(log),
@@ -76,10 +54,9 @@ namespace CNode
         if (initialized)
             return true;
 
-        if (!CreateShader())
-            return false;
-
-        if (!CreateGrid())
+        if (!CreateShader() ||
+            !CreateGrid() ||
+            !CreateAxis())
         {
             Shutdown();
             return false;
@@ -87,7 +64,7 @@ namespace CNode
 
         glGenFramebuffers(1, &framebuffer);
 
-        if (framebuffer == 0)
+        if (!framebuffer)
         {
             Shutdown();
             return false;
@@ -111,7 +88,9 @@ namespace CNode
 
             void main()
             {
-                gl_Position = uViewProjection * vec4(aPosition, 1.0);
+                gl_Position =
+                    uViewProjection * vec4(aPosition, 1.0);
+
                 vertexColor = aColor;
             }
         )";
@@ -172,60 +151,20 @@ namespace CNode
 
             glDeleteProgram(shaderProgram);
             shaderProgram = 0;
-
             return false;
         }
 
         return true;
     }
 
-    bool SceneRenderer::CreateGrid()
+    bool SceneRenderer::CreateLineBuffer(
+        const void* data,
+        int count,
+        unsigned int& vertexArray,
+        unsigned int& vertexBuffer)
     {
-        std::vector<GridVertex> vertices;
-
-        constexpr int gridSize = 10;
-        constexpr float gridColor = 0.25f;
-        constexpr float axisColor = 0.65f;
-
-        for (int i = -gridSize; i <= gridSize; ++i)
-        {
-            const float position = static_cast<float>(i);
-
-            if (i == 0)
-            {
-                AddLine(
-                    vertices,
-                    position, 0.0f, -gridSize,
-                    position, 0.0f, gridSize,
-                    0.20f, 0.40f, axisColor
-                );
-
-                AddLine(
-                    vertices,
-                    -gridSize, 0.0f, position,
-                    gridSize, 0.0f, position,
-                    axisColor, 0.25f, 0.25f
-                );
-            }
-            else
-            {
-                AddLine(
-                    vertices,
-                    position, 0.0f, -gridSize,
-                    position, 0.0f, gridSize,
-                    gridColor, gridColor, gridColor
-                );
-
-                AddLine(
-                    vertices,
-                    -gridSize, 0.0f, position,
-                    gridSize, 0.0f, position,
-                    gridColor, gridColor, gridColor
-                );
-            }
-        }
-
-        vertexCount = static_cast<int>(vertices.size());
+        if (!data || count <= 0)
+            return false;
 
         glGenVertexArrays(1, &vertexArray);
         glGenBuffers(1, &vertexBuffer);
@@ -239,9 +178,10 @@ namespace CNode
         glBufferData(
             GL_ARRAY_BUFFER,
             static_cast<GLsizeiptr>(
-                vertices.size() * sizeof(GridVertex)
+                static_cast<std::size_t>(count) *
+                sizeof(SceneLineVertex)
                 ),
-            vertices.data(),
+            data,
             GL_STATIC_DRAW
         );
 
@@ -251,7 +191,7 @@ namespace CNode
             3,
             GL_FLOAT,
             GL_FALSE,
-            sizeof(GridVertex),
+            sizeof(SceneLineVertex),
             reinterpret_cast<void*>(0)
         );
 
@@ -261,9 +201,9 @@ namespace CNode
             3,
             GL_FLOAT,
             GL_FALSE,
-            sizeof(GridVertex),
+            sizeof(SceneLineVertex),
             reinterpret_cast<void*>(
-                offsetof(GridVertex, color)
+                offsetof(SceneLineVertex, color)
                 )
         );
 
@@ -271,6 +211,34 @@ namespace CNode
         glBindVertexArray(0);
 
         return true;
+    }
+
+    bool SceneRenderer::CreateGrid()
+    {
+        const auto vertices = BuildSceneGridVertices();
+
+        gridVertexCount = static_cast<int>(vertices.size());
+
+        return CreateLineBuffer(
+            vertices.data(),
+            gridVertexCount,
+            gridVertexArray,
+            gridVertexBuffer
+        );
+    }
+
+    bool SceneRenderer::CreateAxis()
+    {
+        const auto vertices = BuildSceneAxisVertices();
+
+        axisVertexCount = static_cast<int>(vertices.size());
+
+        return CreateLineBuffer(
+            vertices.data(),
+            axisVertexCount,
+            axisVertexArray,
+            axisVertexBuffer
+        );
     }
 
     bool SceneRenderer::CreateFramebuffer(int width, int height)
@@ -287,18 +255,37 @@ namespace CNode
         }
 
         int previousFramebuffer = 0;
+        int previousTexture = 0;
+        int previousRenderbuffer = 0;
+
         glGetIntegerv(
             GL_FRAMEBUFFER_BINDING,
             &previousFramebuffer
         );
 
-        if (colorTexture)
-            glDeleteTextures(1, &colorTexture);
+        glGetIntegerv(
+            GL_TEXTURE_BINDING_2D,
+            &previousTexture
+        );
 
-        if (depthBuffer)
-            glDeleteRenderbuffers(1, &depthBuffer);
+        glGetIntegerv(
+            GL_RENDERBUFFER_BINDING,
+            &previousRenderbuffer
+        );
 
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+        if (colorTexture)
+        {
+            glDeleteTextures(1, &colorTexture);
+            colorTexture = 0;
+        }
+
+        if (depthBuffer)
+        {
+            glDeleteRenderbuffers(1, &depthBuffer);
+            depthBuffer = 0;
+        }
 
         glGenTextures(1, &colorTexture);
         glBindTexture(GL_TEXTURE_2D, colorTexture);
@@ -373,16 +360,28 @@ namespace CNode
             static_cast<unsigned int>(previousFramebuffer)
         );
 
-        framebufferWidth = width;
-        framebufferHeight = height;
+        glBindTexture(
+            GL_TEXTURE_2D,
+            static_cast<unsigned int>(previousTexture)
+        );
+
+        glBindRenderbuffer(
+            GL_RENDERBUFFER,
+            static_cast<unsigned int>(previousRenderbuffer)
+        );
 
         if (!complete)
         {
             std::cerr
                 << "CNode: Scene framebuffer is incomplete.\n";
 
+            framebufferWidth = 0;
+            framebufferHeight = 0;
             return false;
         }
+
+        framebufferWidth = width;
+        framebufferHeight = height;
 
         return true;
     }
@@ -390,8 +389,7 @@ namespace CNode
     void SceneRenderer::Render(
         const SceneCamera& camera,
         int width,
-        int height
-    )
+        int height)
     {
         if (!initialized || width <= 0 || height <= 0)
             return;
@@ -429,11 +427,10 @@ namespace CNode
 
         glUseProgram(shaderProgram);
 
-        const int matrixLocation =
-            glGetUniformLocation(
-                shaderProgram,
-                "uViewProjection"
-            );
+        const int matrixLocation = glGetUniformLocation(
+            shaderProgram,
+            "uViewProjection"
+        );
 
         glUniformMatrix4fv(
             matrixLocation,
@@ -442,10 +439,15 @@ namespace CNode
             viewProjection
         );
 
-        glBindVertexArray(vertexArray);
-        glDrawArrays(GL_LINES, 0, vertexCount);
-        glBindVertexArray(0);
+        // grid dirender lebih dahulu
+        glBindVertexArray(gridVertexArray);
+        glDrawArrays(GL_LINES, 0, gridVertexCount);
 
+        // axis dirender terpisah
+        glBindVertexArray(axisVertexArray);
+        glDrawArrays(GL_LINES, 0, axisVertexCount);
+
+        glBindVertexArray(0);
         glUseProgram(0);
 
         glBindFramebuffer(
@@ -473,11 +475,17 @@ namespace CNode
 
     void SceneRenderer::Shutdown()
     {
-        if (vertexBuffer)
-            glDeleteBuffers(1, &vertexBuffer);
+        if (gridVertexBuffer)
+            glDeleteBuffers(1, &gridVertexBuffer);
 
-        if (vertexArray)
-            glDeleteVertexArrays(1, &vertexArray);
+        if (gridVertexArray)
+            glDeleteVertexArrays(1, &gridVertexArray);
+
+        if (axisVertexBuffer)
+            glDeleteBuffers(1, &axisVertexBuffer);
+
+        if (axisVertexArray)
+            glDeleteVertexArrays(1, &axisVertexArray);
 
         if (shaderProgram)
             glDeleteProgram(shaderProgram);
@@ -491,16 +499,21 @@ namespace CNode
         if (framebuffer)
             glDeleteFramebuffers(1, &framebuffer);
 
-        vertexBuffer = 0;
-        vertexArray = 0;
-        shaderProgram = 0;
+        framebuffer = 0;
         colorTexture = 0;
         depthBuffer = 0;
-        framebuffer = 0;
+        shaderProgram = 0;
+
+        gridVertexArray = 0;
+        gridVertexBuffer = 0;
+        gridVertexCount = 0;
+
+        axisVertexArray = 0;
+        axisVertexBuffer = 0;
+        axisVertexCount = 0;
 
         framebufferWidth = 0;
         framebufferHeight = 0;
-        vertexCount = 0;
 
         initialized = false;
     }

@@ -199,6 +199,8 @@ add_executable(CNode
 
     src/tab/windows/scene_editor/scene_editor.cpp
     src/tab/windows/scene_editor/scene_camera.cpp
+    src/tab/windows/scene_editor/scene_grid.cpp
+    src/tab/windows/scene_editor/scene_axis.cpp
     src/tab/windows/scene_editor/scene_renderer.cpp
 
     "${CNODE_REGISTRATION_SOURCE}"
