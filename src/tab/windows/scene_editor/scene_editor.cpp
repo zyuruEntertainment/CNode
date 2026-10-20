@@ -3,6 +3,7 @@
 #include "tab/windows/scene_editor/scene_renderer.h"
 #include "tab/windows/scene_editor/navigation/orbit_navigation.h"
 #include "tab/windows/scene_editor/navigation/zoom_navigation.h"
+#include "tab/windows/scene_editor/navigation/pan_navigation.h"
 
 #include "imgui.h"
 
@@ -25,6 +26,7 @@ namespace CNode
             SceneRenderer renderer;
             OrbitNavigation orbitNavigation;
             ZoomNavigation zoomNavigation;
+            PanNavigation panNavigation;
         };
 
         // Setiap instance Scene Editor memiliki kamera,
@@ -168,6 +170,11 @@ namespace CNode
             );
 
             state->zoomNavigation.Update(
+                state->camera,
+                viewportHovered
+            );
+
+            const bool panActive = state->panNavigation.Update(
                 state->camera,
                 viewportHovered
             );

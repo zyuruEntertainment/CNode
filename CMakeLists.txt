@@ -203,6 +203,8 @@ add_executable(CNode
     src/tab/windows/scene_editor/scene_renderer.cpp
     src/tab/windows/scene_editor/navigation/orbit_navigation.cpp
     src/tab/windows/scene_editor/navigation/zoom_navigation.cpp
+    src/tab/windows/scene_editor/navigation/pan_navigation.cpp
+
 
     src/core/input/cursor_visibility.cpp
 
@@ -215,7 +217,7 @@ add_executable(CNode
 
     "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
     "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
-)
+ "src/tab/windows/scene_editor/navigation/pan_navigation.cpp")
 
 target_compile_definitions(CNode PRIVATE GLFW_INCLUDE_NONE)
 
