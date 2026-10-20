@@ -1,3 +1,4 @@
+
 #include "tab/windows/scene_editor/navigation/free_look_navigation.h"
 
 #include "core/input/cursor_visibility.h"
@@ -19,13 +20,16 @@ namespace CNode
         constexpr float minPitch = -1.55334306f;
         constexpr float maxPitch = 1.55334306f;
         constexpr int startupFramesToIgnore = 2;
+        constexpr float epsilon = 0.00001f;
 
         if (!window)
             return false;
 
         const bool rightDown =
-            glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT)
-            == GLFW_PRESS;
+            glfwGetMouseButton(
+                window,
+                GLFW_MOUSE_BUTTON_RIGHT
+            ) == GLFW_PRESS;
 
         if (!active &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
@@ -35,16 +39,20 @@ namespace CNode
             ignoreMouseDeltaFrames = startupFramesToIgnore;
 
             CursorVisibility::SetCaptured(window, true);
+
             return true;
         }
 
         if (!rightDown)
         {
             if (active)
+            {
                 CursorVisibility::SetCaptured(window, false);
+            }
 
             active = false;
             ignoreMouseDeltaFrames = 0;
+
             return false;
         }
 
@@ -52,12 +60,14 @@ namespace CNode
             return false;
 
         const float deltaTime =
-            std::max(ImGui::GetIO().DeltaTime, 0.0f);
+            std::clamp(ImGui::GetIO().DeltaTime, 0.0f, 0.1f);
 
         float forwardX =
             camera.target[0] - camera.position[0];
+
         float forwardY =
             camera.target[1] - camera.position[1];
+
         float forwardZ =
             camera.target[2] - camera.position[2];
 
@@ -76,7 +86,7 @@ namespace CNode
             forwardZ * forwardZ
         );
 
-        if (directionLength > 0.00001f)
+        if (directionLength > epsilon)
         {
             forwardX /= directionLength;
             forwardY /= directionLength;
@@ -84,12 +94,13 @@ namespace CNode
         }
         else
         {
-            forwardX = -0.70710678f;
-            forwardY = -0.40824829f;
+            forwardX = -0.57735027f;
+            forwardY = -0.57735027f;
             forwardZ = -0.57735027f;
         }
 
         float yaw = std::atan2(forwardZ, forwardX);
+
         float pitch = std::asin(
             std::clamp(forwardY, -1.0f, 1.0f)
         );
@@ -100,28 +111,85 @@ namespace CNode
         }
         else
         {
-            const ImVec2 mouseDelta = ImGui::GetIO().MouseDelta;
+            const ImVec2 mouseDelta =
+                ImGui::GetIO().MouseDelta;
 
             yaw += mouseDelta.x * lookSensitivity;
             pitch -= mouseDelta.y * lookSensitivity;
-            pitch = std::clamp(pitch, minPitch, maxPitch);
 
-            const float cosPitch = std::cos(pitch);
-
-            forwardX = cosPitch * std::cos(yaw);
-            forwardY = std::sin(pitch);
-            forwardZ = cosPitch * std::sin(yaw);
-
-            camera.target[0] =
-                camera.position[0] + forwardX * focusDistance;
-            camera.target[1] =
-                camera.position[1] + forwardY * focusDistance;
-            camera.target[2] =
-                camera.position[2] + forwardZ * focusDistance;
+            pitch = std::clamp(
+                pitch,
+                minPitch,
+                maxPitch
+            );
         }
 
-        const float rightX = -std::sin(yaw);
-        const float rightZ = std::cos(yaw);
+        const float cosPitch = std::cos(pitch);
+
+        forwardX = cosPitch * std::cos(yaw);
+        forwardY = std::sin(pitch);
+        forwardZ = cosPitch * std::sin(yaw);
+
+        const float forwardLength = std::sqrt(
+            forwardX * forwardX +
+            forwardY * forwardY +
+            forwardZ * forwardZ
+        );
+
+        if (forwardLength > epsilon)
+        {
+            forwardX /= forwardLength;
+            forwardY /= forwardLength;
+            forwardZ /= forwardLength;
+        }
+
+        camera.target[0] =
+            camera.position[0] + forwardX * focusDistance;
+
+        camera.target[1] =
+            camera.position[1] + forwardY * focusDistance;
+
+        camera.target[2] =
+            camera.position[2] + forwardZ * focusDistance;
+
+        float rightX = -std::sin(yaw);
+        float rightY = 0.0f;
+        float rightZ = std::cos(yaw);
+
+        const float rightLength = std::sqrt(
+            rightX * rightX +
+            rightY * rightY +
+            rightZ * rightZ
+        );
+
+        if (rightLength > epsilon)
+        {
+            rightX /= rightLength;
+            rightY /= rightLength;
+            rightZ /= rightLength;
+        }
+
+        float upX =
+            rightY * forwardZ - rightZ * forwardY;
+
+        float upY =
+            rightZ * forwardX - rightX * forwardZ;
+
+        float upZ =
+            rightX * forwardY - rightY * forwardX;
+
+        const float upLength = std::sqrt(
+            upX * upX +
+            upY * upY +
+            upZ * upZ
+        );
+
+        if (upLength > epsilon)
+        {
+            upX /= upLength;
+            upY /= upLength;
+            upZ /= upLength;
+        }
 
         float moveX = 0.0f;
         float moveY = 0.0f;
@@ -129,33 +197,45 @@ namespace CNode
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         {
-            moveX += std::cos(yaw);
-            moveZ += std::sin(yaw);
+            moveX += forwardX;
+            moveY += forwardY;
+            moveZ += forwardZ;
         }
 
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         {
-            moveX -= std::cos(yaw);
-            moveZ -= std::sin(yaw);
+            moveX -= forwardX;
+            moveY -= forwardY;
+            moveZ -= forwardZ;
         }
 
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         {
             moveX += rightX;
+            moveY += rightY;
             moveZ += rightZ;
         }
 
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         {
             moveX -= rightX;
+            moveY -= rightY;
             moveZ -= rightZ;
         }
 
         if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-            moveY += 1.0f;
+        {
+            moveX += upX;
+            moveY += upY;
+            moveZ += upZ;
+        }
 
         if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-            moveY -= 1.0f;
+        {
+            moveX -= upX;
+            moveY -= upY;
+            moveZ -= upZ;
+        }
 
         const float moveLength = std::sqrt(
             moveX * moveX +
@@ -163,7 +243,7 @@ namespace CNode
             moveZ * moveZ
         );
 
-        if (moveLength > 0.00001f)
+        if (moveLength > epsilon)
         {
             moveX /= moveLength;
             moveY /= moveLength;

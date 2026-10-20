@@ -166,26 +166,29 @@ namespace CNode
                     viewportHovered
                 );
 
-            const bool panActive =
-                state->panNavigation.Update(
-                    state->camera,
-                    window,
-                    viewportHovered
-                );
-
-            if (!panActive)
+            if (!freeLookActive)
             {
-                state->orbitNavigation.Update(
+                const bool panActive =
+                    state->panNavigation.Update(
+                        state->camera,
+                        window,
+                        viewportHovered
+                    );
+
+                if (!panActive)
+                {
+                    state->orbitNavigation.Update(
+                        state->camera,
+                        window,
+                        viewportHovered
+                    );
+                }
+
+                state->zoomNavigation.Update(
                     state->camera,
-                    window,
                     viewportHovered
                 );
             }
-
-            state->zoomNavigation.Update(
-                state->camera,
-                viewportHovered
-            );
         }
 
         ImGui::End();
