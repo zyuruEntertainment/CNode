@@ -163,14 +163,14 @@ namespace CNode
             const bool viewportHovered =
                 ImGui::IsItemHovered();
 
-            state->orbitNavigation.Update(
+            state->zoomNavigation.Update(
                 state->camera,
-                window,
                 viewportHovered
             );
 
-            state->zoomNavigation.Update(
+            state->orbitNavigation.Update(
                 state->camera,
+                window,
                 viewportHovered
             );
 
