@@ -1,10 +1,10 @@
-
 #include "tab/windows/scene_editor/scene_editor.h"
 #include "tab/windows/scene_editor/scene_camera.h"
 #include "tab/windows/scene_editor/scene_renderer.h"
 #include "tab/windows/scene_editor/navigation/orbit_navigation.h"
 #include "tab/windows/scene_editor/navigation/zoom_navigation.h"
 #include "tab/windows/scene_editor/navigation/pan_navigation.h"
+#include "tab/windows/scene_editor/navigation/free_look_navigation.h"
 
 #include "imgui.h"
 
@@ -28,6 +28,7 @@ namespace CNode
             OrbitNavigation orbitNavigation;
             ZoomNavigation zoomNavigation;
             PanNavigation panNavigation;
+            FreeLookNavigation freeLookNavigation;
         };
 
         std::unordered_map<
@@ -157,6 +158,13 @@ namespace CNode
 
             const bool viewportHovered =
                 ImGui::IsItemHovered();
+
+            const bool freeLookActive =
+                state->freeLookNavigation.Update(
+                    state->camera,
+                    window,
+                    viewportHovered
+                );
 
             const bool panActive =
                 state->panNavigation.Update(
