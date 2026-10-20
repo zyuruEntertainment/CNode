@@ -1,19 +1,22 @@
 #include "tab/windows/scene_editor/navigation/pan_navigation.h"
 
+#include "core/input/cursor_visibility.h"
+
 #include "imgui.h"
 
-#include <algorithm>
 #include <cmath>
 
 namespace CNode
 {
     bool PanNavigation::Update(
         SceneCamera& camera,
+        GLFWwindow* window,
         bool viewportHovered
     )
     {
         constexpr int panButton = ImGuiMouseButton_Middle;
         constexpr float minDistance = 0.0001f;
+        constexpr int startupFramesToIgnore = 2;
 
         const ImGuiIO& io = ImGui::GetIO();
 
@@ -28,18 +31,40 @@ namespace CNode
             viewportHovered)
         {
             panning = true;
+            ignoreMouseDeltaFrames = startupFramesToIgnore;
+
+            CursorVisibility::SetCaptured(
+                window,
+                true
+            );
 
             return true;
         }
 
         if (!middleDown)
         {
+            if (panning)
+            {
+                CursorVisibility::SetCaptured(
+                    window,
+                    false
+                );
+            }
+
             panning = false;
+            ignoreMouseDeltaFrames = 0;
+
             return false;
         }
 
         if (!panning)
             return false;
+
+        if (ignoreMouseDeltaFrames > 0)
+        {
+            --ignoreMouseDeltaFrames;
+            return true;
+        }
 
         const float deltaX = io.MouseDelta.x;
         const float deltaY = io.MouseDelta.y;

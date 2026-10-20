@@ -1,3 +1,4 @@
+
 #include "tab/windows/scene_editor/scene_editor.h"
 #include "tab/windows/scene_editor/scene_camera.h"
 #include "tab/windows/scene_editor/scene_renderer.h"
@@ -29,8 +30,6 @@ namespace CNode
             PanNavigation panNavigation;
         };
 
-        // Setiap instance Scene Editor memiliki kamera,
-        // renderer, dan framebuffer miliknya sendiri.
         std::unordered_map<
             std::string,
             std::unique_ptr<SceneEditorState>
@@ -86,7 +85,6 @@ namespace CNode
             return;
         }
 
-        // Ukuran area konten aktual jendela ini.
         const ImVec2 available =
             ImGui::GetContentRegionAvail();
 
@@ -108,11 +106,9 @@ namespace CNode
             return;
         }
 
-        // Ukuran logis untuk tampilan ImGui.
         const float displayWidth = available.x;
         const float displayHeight = available.y;
 
-        // Ukuran framebuffer aktual untuk OpenGL.
         const ImGuiIO& io = ImGui::GetIO();
 
         const float scaleX =
@@ -135,7 +131,6 @@ namespace CNode
                 )
         );
 
-        // Renderer hanya mengubah framebuffer milik state ini.
         state->renderer.Render(
             state->camera,
             renderWidth,
@@ -166,6 +161,7 @@ namespace CNode
             const bool panActive =
                 state->panNavigation.Update(
                     state->camera,
+                    window,
                     viewportHovered
                 );
 
@@ -182,7 +178,6 @@ namespace CNode
                 state->camera,
                 viewportHovered
             );
-
         }
 
         ImGui::End();
