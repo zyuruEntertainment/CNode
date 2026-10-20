@@ -22,14 +22,14 @@ namespace CNode
         constexpr float maxPitch = 1.55334306f;
         constexpr int startupFramesToIgnore = 2;
 
-        // Mulai orbit hanya jika klik terjadi di viewport.
+        const ImGuiIO& io = ImGui::GetIO();
+
         if (ImGui::IsMouseClicked(orbitButton) &&
             viewportHovered &&
+            !io.KeyShift &&
             !orbiting)
         {
             orbiting = true;
-
-            // Hindari delta mouse akibat pergantian mode kursor.
             ignoreMouseDeltaFrames = startupFramesToIgnore;
 
             CursorVisibility::SetCaptured(
@@ -37,11 +37,9 @@ namespace CNode
                 true
             );
 
-            // Jangan memutar kamera pada frame klik awal.
             return;
         }
 
-        // Pulihkan kursor ketika tombol tengah dilepas.
         if (!ImGui::IsMouseDown(orbitButton))
         {
             if (orbiting)
@@ -60,23 +58,18 @@ namespace CNode
         if (!orbiting)
             return;
 
-        // Abaikan frame awal setelah kursor ditangkap.
         if (ignoreMouseDeltaFrames > 0)
         {
             --ignoreMouseDeltaFrames;
             return;
         }
 
-        const ImGuiIO& io = ImGui::GetIO();
-
         const float deltaX = io.MouseDelta.x;
         const float deltaY = io.MouseDelta.y;
 
-        // Tidak ada gerakan mouse, tidak perlu menghitung ulang kamera.
         if (deltaX == 0.0f && deltaY == 0.0f)
             return;
 
-        // Posisi kamera relatif terhadap target orbit.
         const float offsetX =
             camera.position[0] - camera.target[0];
 
@@ -108,10 +101,7 @@ namespace CNode
             )
         );
 
-        // Rotasi horizontal.
         yaw += deltaX * sensitivity;
-
-        // Rotasi vertikal.
         pitch += deltaY * sensitivity;
 
         pitch = std::clamp(

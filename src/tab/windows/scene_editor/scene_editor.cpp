@@ -163,21 +163,26 @@ namespace CNode
             const bool viewportHovered =
                 ImGui::IsItemHovered();
 
+            const bool panActive =
+                state->panNavigation.Update(
+                    state->camera,
+                    viewportHovered
+                );
+
+            if (!panActive)
+            {
+                state->orbitNavigation.Update(
+                    state->camera,
+                    window,
+                    viewportHovered
+                );
+            }
+
             state->zoomNavigation.Update(
                 state->camera,
                 viewportHovered
             );
 
-            state->orbitNavigation.Update(
-                state->camera,
-                window,
-                viewportHovered
-            );
-
-            const bool panActive = state->panNavigation.Update(
-                state->camera,
-                viewportHovered
-            );
         }
 
         ImGui::End();

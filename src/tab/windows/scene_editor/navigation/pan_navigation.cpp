@@ -1,4 +1,3 @@
-
 #include "tab/windows/scene_editor/navigation/pan_navigation.h"
 
 #include "imgui.h"
@@ -23,7 +22,6 @@ namespace CNode
 
         const bool shiftDown = io.KeyShift;
 
-        // Pan hanya boleh dimulai dari viewport.
         if (!panning &&
             ImGui::IsMouseClicked(panButton) &&
             shiftDown &&
@@ -31,21 +29,17 @@ namespace CNode
         {
             panning = true;
 
-            // Hindari perpindahan akibat delta pada frame klik.
             return true;
         }
 
-        // Selesaikan gesture ketika tombol tengah dilepas.
         if (!middleDown)
         {
             panning = false;
             return false;
         }
 
-        // Shift + tombol tengah tidak boleh memicu orbit,
-        // meskipun gesture dimulai di luar viewport.
         if (!panning)
-            return shiftDown;
+            return false;
 
         const float deltaX = io.MouseDelta.x;
         const float deltaY = io.MouseDelta.y;
@@ -53,7 +47,6 @@ namespace CNode
         if (deltaX == 0.0f && deltaY == 0.0f)
             return true;
 
-        // Arah dari kamera menuju target.
         float forwardX =
             camera.target[0] - camera.position[0];
 
@@ -76,7 +69,6 @@ namespace CNode
         forwardY /= distance;
         forwardZ /= distance;
 
-        // Right = normalize(cross(forward, worldUp)).
         float rightX = -forwardZ;
         float rightY = 0.0f;
         float rightZ = forwardX;
@@ -94,7 +86,6 @@ namespace CNode
         rightY /= rightLength;
         rightZ /= rightLength;
 
-        // Camera up = cross(right, forward).
         const float upX =
             rightY * forwardZ - rightZ * forwardY;
 
@@ -104,13 +95,9 @@ namespace CNode
         const float upZ =
             rightX * forwardY - rightY * forwardX;
 
-        // Skala berdasarkan jarak agar pan terasa konsisten
-        // ketika kamera berada dekat maupun jauh dari target.
         const float movementScale =
             distance * sensitivity;
 
-        // Drag ke kanan menggeser kamera ke kiri.
-        // Drag ke bawah menggeser kamera ke atas.
         const float moveX =
             (-rightX * deltaX + upX * deltaY)
             * movementScale;
@@ -123,7 +110,6 @@ namespace CNode
             (-rightZ * deltaX + upZ * deltaY)
             * movementScale;
 
-        // Geser kamera dan target dengan vektor yang sama.
         camera.position[0] += moveX;
         camera.position[1] += moveY;
         camera.position[2] += moveZ;
