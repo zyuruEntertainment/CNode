@@ -1,5 +1,11 @@
 #include "tab/windows/scene_editor/ui/orbit_gizmo.h"
 
+#include "core/input/cursor_visibility.h"
+
+#include "imgui.h"
+
+#include <GLFW/glfw3.h>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -12,21 +18,17 @@ namespace CNode
 
         struct Vec3
         {
-            float x, y, z;
+            float x;
+            float y;
+            float z;
         };
-
-        Vec3 Subtract(const Vec3& a, const Vec3& b)
-        {
-            return {
-                a.x - b.x,
-                a.y - b.y,
-                a.z - b.z
-            };
-        }
 
         float Dot(const Vec3& a, const Vec3& b)
         {
-            return a.x * b.x + a.y * b.y + a.z * b.z;
+            return
+                a.x * b.x +
+                a.y * b.y +
+                a.z * b.z;
         }
 
         Vec3 Cross(const Vec3& a, const Vec3& b)
@@ -38,17 +40,19 @@ namespace CNode
             };
         }
 
-        Vec3 Normalize(const Vec3& v)
+        Vec3 Normalize(const Vec3& value)
         {
-            const float length = std::sqrt(Dot(v, v));
+            const float length = std::sqrt(Dot(value, value));
 
             if (length < 0.00001f)
+            {
                 return { 0.0f, 0.0f, 0.0f };
+            }
 
             return {
-                v.x / length,
-                v.y / length,
-                v.z / length
+                value.x / length,
+                value.y / length,
+                value.z / length
             };
         }
 
@@ -66,7 +70,10 @@ namespace CNode
             };
         }
 
-        float DistanceSquared(const ImVec2& a, const ImVec2& b)
+        float DistanceSquared(
+            const ImVec2& a,
+            const ImVec2& b
+        )
         {
             const float x = a.x - b.x;
             const float y = a.y - b.y;
@@ -74,7 +81,20 @@ namespace CNode
             return x * x + y * y;
         }
 
-        void SnapToAxis(SceneCamera& camera, const Vec3& direction)
+        bool IsInside(
+            const ImVec2& point,
+            const ImVec2& center,
+            float radius
+        )
+        {
+            return DistanceSquared(point, center)
+                <= radius * radius;
+        }
+
+        void SnapToAxis(
+            SceneCamera& camera,
+            const Vec3& direction
+        )
         {
             const Vec3 target = {
                 camera.target[0],
@@ -93,15 +113,22 @@ namespace CNode
                 1.0f
             );
 
-            camera.position[0] = target.x + direction.x * distance;
-            camera.position[1] = target.y + direction.y * distance;
-            camera.position[2] = target.z + direction.z * distance;
+            camera.position[0] =
+                target.x + direction.x * distance;
 
+            camera.position[1] =
+                target.y + direction.y * distance;
+
+            camera.position[2] =
+                target.z + direction.z * distance;
+
+            // Hindari up vector sejajar dengan arah pandang.
             if (std::abs(direction.y) > 0.99f)
             {
                 camera.up[0] = 0.0f;
                 camera.up[1] = 0.0f;
-                camera.up[2] = direction.y > 0.0f ? -1.0f : 1.0f;
+                camera.up[2] =
+                    direction.y > 0.0f ? -1.0f : 1.0f;
             }
             else
             {
@@ -109,15 +136,6 @@ namespace CNode
                 camera.up[1] = 1.0f;
                 camera.up[2] = 0.0f;
             }
-        }
-
-        bool IsInside(
-            const ImVec2& point,
-            const ImVec2& center,
-            float radius
-        )
-        {
-            return DistanceSquared(point, center) <= radius * radius;
         }
     }
 
@@ -131,15 +149,27 @@ namespace CNode
         constexpr float hitRadius = 12.0f;
         constexpr float interactionRadius = 42.0f;
 
+        GLFWwindow* window = glfwGetCurrentContext();
+
         const ImVec2 center(
             viewportMax.x - 52.0f,
             viewportMin.y + 52.0f
         );
 
+        // Pulihkan kursor jika viewport menjadi terlalu kecil.
         if (center.x - interactionRadius < viewportMin.x ||
             center.y + interactionRadius > viewportMax.y)
         {
+            if (dragging)
+            {
+                CursorVisibility::SetCaptured(window, false);
+            }
+
             dragging = false;
+            moved = false;
+            ignoreFirstDragDelta = false;
+            selectedAxis = -1;
+
             return;
         }
 
@@ -161,15 +191,23 @@ namespace CNode
         );
 
         const Vec3 forward = Normalize({
-            -offset.x, -offset.y, -offset.z
+            -offset.x,
+            -offset.y,
+            -offset.z
             });
 
-        const Vec3 worldUp = { 0.0f, 1.0f, 0.0f };
+        const Vec3 worldUp = {
+            0.0f,
+            1.0f,
+            0.0f
+        };
 
         Vec3 right = Normalize(Cross(forward, worldUp));
 
         if (Dot(right, right) < 0.0001f)
+        {
             right = { 1.0f, 0.0f, 0.0f };
+        }
 
         const Vec3 up = Normalize(Cross(right, forward));
 
@@ -185,37 +223,52 @@ namespace CNode
             IM_COL32(80, 145, 255, 255)
         } };
 
-        const char* labels[] = { "X", "Y", "Z" };
+        const char* labels[] = {
+            "X",
+            "Y",
+            "Z"
+        };
 
         ImDrawList* drawList = ImGui::GetWindowDrawList();
 
         drawList->AddCircleFilled(
-            center, 40.0f,
-            IM_COL32(25, 27, 31, 225), 32
+            center,
+            40.0f,
+            IM_COL32(25, 27, 31, 225),
+            32
         );
 
         drawList->AddCircle(
-            center, 40.0f,
-            IM_COL32(90, 95, 105, 220), 32, 1.0f
+            center,
+            40.0f,
+            IM_COL32(90, 95, 105, 220),
+            32,
+            1.0f
         );
 
         const ImVec2 mouse = ImGui::GetIO().MousePos;
+
         const bool hovered = IsInside(
-            mouse, center, interactionRadius
+            mouse,
+            center,
+            interactionRadius
         );
 
-        // Simpan sumbu yang dipilih ketika tombol pertama ditekan.
+        // Mulai drag ketika tombol kiri ditekan di area gizmo.
         if (!dragging &&
             hovered &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
             dragging = true;
             moved = false;
-            lastMousePosition = mouse;
+            ignoreFirstDragDelta = true;
 
+            lastMousePosition = mouse;
             selectedAxis = -1;
+
             float closestDistance = hitRadius * hitRadius;
 
+            // Tentukan sumbu untuk aksi klik tanpa drag.
             for (int i = 0; i < 3; ++i)
             {
                 for (int sign : { -1, 1 })
@@ -227,10 +280,17 @@ namespace CNode
                     };
 
                     const ImVec2 endpoint = ProjectAxis(
-                        direction, right, up, center, gizmoRadius
+                        direction,
+                        right,
+                        up,
+                        center,
+                        gizmoRadius
                     );
 
-                    const float d = DistanceSquared(mouse, endpoint);
+                    const float d = DistanceSquared(
+                        mouse,
+                        endpoint
+                    );
 
                     if (d < closestDistance)
                     {
@@ -240,28 +300,41 @@ namespace CNode
                     }
                 }
             }
+
+            // Sembunyikan dan tangkap kursor selama drag.
+            CursorVisibility::SetCaptured(window, true);
         }
 
-        // Orbit berjalan setiap frame selama tombol kiri ditahan.
-        if (dragging && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        // Orbit selama tombol kiri ditahan.
+        if (dragging &&
+            ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
-            const ImVec2 delta(
-                mouse.x - lastMousePosition.x,
-                mouse.y - lastMousePosition.y
-            );
+            const ImVec2 delta = ImGui::GetIO().MouseDelta;
 
-            if (std::abs(delta.x) > 0.0f ||
-                std::abs(delta.y) > 0.0f)
+            // Abaikan delta awal agar kamera tidak meloncat.
+            if (ignoreFirstDragDelta)
             {
-                if (DistanceSquared(mouse, lastMousePosition) > 0.0f)
-                    moved = true;
+                ignoreFirstDragDelta = false;
+            }
+            else if (delta.x != 0.0f || delta.y != 0.0f)
+            {
+                moved = true;
 
-                float yaw = std::atan2(offset.z, offset.x);
-                float pitch = std::asin(std::clamp(
-                    offset.y / distance, -1.0f, 1.0f
-                ));
+                float yaw = std::atan2(
+                    offset.z,
+                    offset.x
+                );
 
-                yaw -= delta.x * sensitivity;
+                float pitch = std::asin(
+                    std::clamp(
+                        offset.y / distance,
+                        -1.0f,
+                        1.0f
+                    )
+                );
+
+                // Samakan arah drag dengan OrbitNavigation.
+                yaw += delta.x * sensitivity;
                 pitch += delta.y * sensitivity;
 
                 pitch = std::clamp(
@@ -270,7 +343,8 @@ namespace CNode
                     Pi * 0.495f
                 );
 
-                const float horizontal = distance * std::cos(pitch);
+                const float horizontal =
+                    distance * std::cos(pitch);
 
                 camera.position[0] =
                     target.x + horizontal * std::cos(yaw);
@@ -289,10 +363,11 @@ namespace CNode
             lastMousePosition = mouse;
         }
 
-        // Klik biasa pada ujung sumbu akan mengunci orientasi.
+        // Lepas drag dan pulihkan kursor.
         if (dragging &&
             ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
+            // Klik sumbu tanpa menggeser mouse akan snap ke sumbu.
             if (!moved && selectedAxis >= 0)
             {
                 const Vec3 direction = {
@@ -306,10 +381,13 @@ namespace CNode
 
             dragging = false;
             moved = false;
+            ignoreFirstDragDelta = false;
             selectedAxis = -1;
+
+            CursorVisibility::SetCaptured(window, false);
         }
 
-        // Gambar ulang berdasarkan orientasi kamera terkini.
+        // Hitung ulang orientasi gizmo berdasarkan posisi kamera terbaru.
         const Vec3 newOffset = {
             camera.position[0] - target.x,
             camera.position[1] - target.y,
@@ -317,16 +395,25 @@ namespace CNode
         };
 
         const Vec3 newForward = Normalize({
-            -newOffset.x, -newOffset.y, -newOffset.z
+            -newOffset.x,
+            -newOffset.y,
+            -newOffset.z
             });
 
-        Vec3 newRight = Normalize(Cross(newForward, worldUp));
+        Vec3 newRight = Normalize(
+            Cross(newForward, worldUp)
+        );
 
         if (Dot(newRight, newRight) < 0.0001f)
+        {
             newRight = { 1.0f, 0.0f, 0.0f };
+        }
 
-        const Vec3 newUp = Normalize(Cross(newRight, newForward));
+        const Vec3 newUp = Normalize(
+            Cross(newRight, newForward)
+        );
 
+        // Gambar sumbu positif dan negatif.
         for (int i = 0; i < 3; ++i)
         {
             for (int sign : { -1, 1 })
@@ -338,27 +425,39 @@ namespace CNode
                 };
 
                 const ImVec2 endpoint = ProjectAxis(
-                    direction, newRight, newUp, center, gizmoRadius
+                    direction,
+                    newRight,
+                    newUp,
+                    center,
+                    gizmoRadius
                 );
 
-                const bool front = Dot(direction, newForward) < 0.0f;
+                const bool front =
+                    Dot(direction, newForward) < 0.0f;
 
                 const ImU32 color = front
                     ? colors[i]
                     : IM_COL32(100, 105, 115, 180);
 
                 drawList->AddLine(
-                    center, endpoint, color,
+                    center,
+                    endpoint,
+                    color,
                     front ? 3.0f : 2.0f
                 );
 
                 drawList->AddCircleFilled(
-                    endpoint, front ? 7.0f : 5.0f,
-                    color, 20
+                    endpoint,
+                    front ? 7.0f : 5.0f,
+                    color,
+                    20
                 );
 
                 drawList->AddText(
-                    ImVec2(endpoint.x - 4.0f, endpoint.y - 7.0f),
+                    ImVec2(
+                        endpoint.x - 4.0f,
+                        endpoint.y - 7.0f
+                    ),
                     IM_COL32(255, 255, 255, 255),
                     labels[i]
                 );

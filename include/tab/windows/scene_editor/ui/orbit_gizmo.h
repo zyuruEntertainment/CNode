@@ -18,6 +18,7 @@ namespace CNode
     private:
         bool dragging = false;
         bool moved = false;
+        bool ignoreFirstDragDelta = false;
 
         ImVec2 lastMousePosition = ImVec2(0.0f, 0.0f);
 
