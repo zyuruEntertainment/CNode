@@ -30,6 +30,7 @@ namespace CNode
             ZoomNavigation zoomNavigation;
             PanNavigation panNavigation;
             FreeLookNavigation freeLookNavigation;
+            OrbitGizmo orbitGizmo;
         };
 
         std::unordered_map<
@@ -158,7 +159,7 @@ namespace CNode
                 viewportMin.y + displayHeight
             );
 
-            DrawOrbitGizmo(
+            state->orbitGizmo.Draw(
                 state->camera,
                 viewportMin,
                 viewportMax
