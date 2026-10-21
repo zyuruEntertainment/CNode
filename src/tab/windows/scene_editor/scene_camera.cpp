@@ -1,15 +1,20 @@
+
 #include "tab/windows/scene_editor/scene_camera.h"
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
 namespace CNode
 {
     namespace
     {
+        constexpr float Epsilon = 0.00001f;
+
         struct Vec3
         {
-            float x, y, z;
+            float x;
+            float y;
+            float z;
         };
 
         Vec3 Subtract(const Vec3& a, const Vec3& b)
@@ -32,14 +37,22 @@ namespace CNode
 
         float Dot(const Vec3& a, const Vec3& b)
         {
-            return a.x * b.x + a.y * b.y + a.z * b.z;
+            return
+                a.x * b.x +
+                a.y * b.y +
+                a.z * b.z;
+        }
+
+        float Length(const Vec3& value)
+        {
+            return std::sqrt(Dot(value, value));
         }
 
         Vec3 Normalize(const Vec3& value)
         {
-            const float length = std::sqrt(Dot(value, value));
+            const float length = Length(value);
 
-            if (length <= 0.00001f)
+            if (length <= Epsilon)
                 return { 0.0f, 0.0f, 0.0f };
 
             return {
@@ -88,18 +101,40 @@ namespace CNode
         void LookAt(
             const Vec3& eye,
             const Vec3& target,
-            const Vec3& worldUp,
+            const Vec3& requestedUp,
             float* output
         )
         {
-            const Vec3 forward =
-                Normalize(Subtract(target, eye));
+            Vec3 forward = Normalize(Subtract(target, eye));
 
-            const Vec3 right =
-                Normalize(Cross(forward, worldUp));
+            if (Length(forward) <= Epsilon)
+                forward = { 0.0f, 0.0f, -1.0f };
 
-            const Vec3 cameraUp =
-                Cross(right, forward);
+            Vec3 upReference = Normalize(requestedUp);
+
+            if (Length(upReference) <= Epsilon)
+                upReference = { 0.0f, 1.0f, 0.0f };
+
+            Vec3 right = Normalize(Cross(forward, upReference));
+
+            if (Length(right) <= Epsilon)
+            {
+                upReference =
+                    std::abs(forward.y) > 0.99f
+                    ? Vec3{ 0.0f, 0.0f, 1.0f }
+                : Vec3{ 0.0f, 1.0f, 0.0f };
+
+                right = Normalize(Cross(forward, upReference));
+            }
+
+            Vec3 cameraUp = Normalize(Cross(right, forward));
+
+            if (Length(right) <= Epsilon ||
+                Length(cameraUp) <= Epsilon)
+            {
+                right = { 1.0f, 0.0f, 0.0f };
+                cameraUp = Normalize(Cross(right, forward));
+            }
 
             Identity(output);
 
@@ -131,9 +166,9 @@ namespace CNode
             for (int i = 0; i < 16; ++i)
                 output[i] = 0.0f;
 
-            constexpr float pi = 3.14159265358979323846f;
+            constexpr float Pi = 3.14159265358979323846f;
 
-            const float radians = fieldOfView * pi / 180.0f;
+            const float radians = fieldOfView * Pi / 180.0f;
             const float scale = 1.0f / std::tan(radians * 0.5f);
 
             output[0] = scale / aspectRatio;

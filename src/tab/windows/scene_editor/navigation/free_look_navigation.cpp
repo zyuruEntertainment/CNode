@@ -46,9 +46,7 @@ namespace CNode
         if (!rightDown)
         {
             if (active)
-            {
                 CursorVisibility::SetCaptured(window, false);
-            }
 
             active = false;
             ignoreMouseDeltaFrames = 0;
@@ -99,7 +97,38 @@ namespace CNode
             forwardZ = -0.57735027f;
         }
 
+        const float horizontalLength = std::sqrt(
+            forwardX * forwardX +
+            forwardZ * forwardZ
+        );
+
         float yaw = std::atan2(forwardZ, forwardX);
+
+        if (horizontalLength < 0.0001f)
+        {
+            const float upHorizontalLength = std::sqrt(
+                camera.up[0] * camera.up[0] +
+                camera.up[2] * camera.up[2]
+            );
+
+            if (upHorizontalLength > epsilon)
+            {
+                if (forwardY < 0.0f)
+                {
+                    yaw = std::atan2(
+                        camera.up[2],
+                        camera.up[0]
+                    );
+                }
+                else
+                {
+                    yaw = std::atan2(
+                        -camera.up[2],
+                        -camera.up[0]
+                    );
+                }
+            }
+        }
 
         float pitch = std::asin(
             std::clamp(forwardY, -1.0f, 1.0f)
@@ -114,14 +143,18 @@ namespace CNode
             const ImVec2 mouseDelta =
                 ImGui::GetIO().MouseDelta;
 
-            yaw += mouseDelta.x * lookSensitivity;
-            pitch -= mouseDelta.y * lookSensitivity;
+            if (mouseDelta.x != 0.0f ||
+                mouseDelta.y != 0.0f)
+            {
+                yaw += mouseDelta.x * lookSensitivity;
+                pitch -= mouseDelta.y * lookSensitivity;
 
-            pitch = std::clamp(
-                pitch,
-                minPitch,
-                maxPitch
-            );
+                pitch = std::clamp(
+                    pitch,
+                    minPitch,
+                    maxPitch
+                );
+            }
         }
 
         const float cosPitch = std::cos(pitch);
@@ -142,15 +175,6 @@ namespace CNode
             forwardY /= forwardLength;
             forwardZ /= forwardLength;
         }
-
-        camera.target[0] =
-            camera.position[0] + forwardX * focusDistance;
-
-        camera.target[1] =
-            camera.position[1] + forwardY * focusDistance;
-
-        camera.target[2] =
-            camera.position[2] + forwardZ * focusDistance;
 
         float rightX = -std::sin(yaw);
         float rightY = 0.0f;
@@ -190,6 +214,25 @@ namespace CNode
             upY /= upLength;
             upZ /= upLength;
         }
+        else
+        {
+            upX = camera.up[0];
+            upY = camera.up[1];
+            upZ = camera.up[2];
+        }
+
+        camera.up[0] = upX;
+        camera.up[1] = upY;
+        camera.up[2] = upZ;
+
+        camera.target[0] =
+            camera.position[0] + forwardX * focusDistance;
+
+        camera.target[1] =
+            camera.position[1] + forwardY * focusDistance;
+
+        camera.target[2] =
+            camera.position[2] + forwardZ * focusDistance;
 
         float moveX = 0.0f;
         float moveY = 0.0f;
