@@ -1,3 +1,4 @@
+
 #include "tab/windows/scene_editor/ui/orbit_gizmo.h"
 
 #include "core/input/cursor_visibility.h"
@@ -16,12 +17,47 @@ namespace CNode
     {
         constexpr float Pi = 3.14159265358979323846f;
 
+        constexpr float GizmoRadius = 40.0f;
+        constexpr float InteractionRadius = 52.0f;
+        constexpr float HitRadius = 13.0f;
+
+        constexpr float AxisDotRadius = 10.0f;
+        constexpr float BackAxisDotRadius = 5.5f;
+
+        constexpr float GizmoBackgroundRadius = 48.0f;
+        constexpr float GizmoBorderThickness = 1.2f;
+
+        constexpr ImU32 BackgroundColor =
+            IM_COL32(25, 27, 32, 235);
+
+        constexpr ImU32 BorderColor =
+            IM_COL32(82, 88, 99, 230);
+
+        constexpr ImU32 TextColor =
+            IM_COL32(245, 247, 250, 255);
+
         struct Vec3
         {
             float x;
             float y;
             float z;
         };
+
+        constexpr std::array<Vec3, 3> Axes = { {
+            { 1.0f, 0.0f, 0.0f },
+            { 0.0f, 1.0f, 0.0f },
+            { 0.0f, 0.0f, 1.0f }
+        } };
+
+        constexpr std::array<ImU32, 3> AxisColors = { {
+            IM_COL32(238, 83, 83, 255),
+            IM_COL32(91, 211, 126, 255),
+            IM_COL32(83, 151, 255, 255)
+        } };
+
+        constexpr std::array<const char*, 3> AxisLabels = { {
+            "X", "Y", "Z"
+        } };
 
         float Dot(const Vec3& a, const Vec3& b)
         {
@@ -56,6 +92,54 @@ namespace CNode
             };
         }
 
+        Vec3 Lerp(
+            const Vec3& from,
+            const Vec3& to,
+            float t
+        )
+        {
+            return {
+                from.x + (to.x - from.x) * t,
+                from.y + (to.y - from.y) * t,
+                from.z + (to.z - from.z) * t
+            };
+        }
+
+        float EaseInOut(float t)
+        {
+            t = std::clamp(t, 0.0f, 1.0f);
+
+            // Smoothstep: gerakan lembut di awal dan akhir.
+            return t * t * (3.0f - 2.0f * t);
+        }
+
+        Vec3 ReadVector(const float value[3])
+        {
+            return { value[0], value[1], value[2] };
+        }
+
+        void WriteVector(float destination[3], const Vec3& value)
+        {
+            destination[0] = value.x;
+            destination[1] = value.y;
+            destination[2] = value.z;
+        }
+
+        Vec3 ReadArray(const std::array<float, 3>& value)
+        {
+            return { value[0], value[1], value[2] };
+        }
+
+        void WriteArray(
+            std::array<float, 3>& destination,
+            const Vec3& value
+        )
+        {
+            destination[0] = value.x;
+            destination[1] = value.y;
+            destination[2] = value.z;
+        }
+
         ImVec2 ProjectAxis(
             const Vec3& axis,
             const Vec3& right,
@@ -75,10 +159,10 @@ namespace CNode
             const ImVec2& b
         )
         {
-            const float x = a.x - b.x;
-            const float y = a.y - b.y;
+            const float dx = a.x - b.x;
+            const float dy = a.y - b.y;
 
-            return x * x + y * y;
+            return dx * dx + dy * dy;
         }
 
         bool IsInside(
@@ -87,13 +171,28 @@ namespace CNode
             float radius
         )
         {
-            return DistanceSquared(point, center)
-                <= radius * radius;
+            return DistanceSquared(point, center) <= radius * radius;
         }
 
-        void SnapToAxis(
-            SceneCamera& camera,
-            const Vec3& direction
+        ImU32 DimColor(ImU32 color)
+        {
+            const int r = (color >> IM_COL32_R_SHIFT) & 0xFF;
+            const int g = (color >> IM_COL32_G_SHIFT) & 0xFF;
+            const int b = (color >> IM_COL32_B_SHIFT) & 0xFF;
+
+            return IM_COL32(
+                r * 65 / 100,
+                g * 65 / 100,
+                b * 65 / 100,
+                175
+            );
+        }
+
+        void GetCameraBasis(
+            const SceneCamera& camera,
+            Vec3& forward,
+            Vec3& right,
+            Vec3& up
         )
         {
             const Vec3 target = {
@@ -108,34 +207,22 @@ namespace CNode
                 camera.position[2] - target.z
             };
 
-            const float distance = std::max(
-                std::sqrt(Dot(offset, offset)),
-                1.0f
-            );
+            forward = Normalize({
+                -offset.x,
+                -offset.y,
+                -offset.z
+                });
 
-            camera.position[0] =
-                target.x + direction.x * distance;
+            const Vec3 worldUp = { 0.0f, 1.0f, 0.0f };
 
-            camera.position[1] =
-                target.y + direction.y * distance;
+            right = Normalize(Cross(forward, worldUp));
 
-            camera.position[2] =
-                target.z + direction.z * distance;
-
-            // Hindari up vector sejajar dengan arah pandang.
-            if (std::abs(direction.y) > 0.99f)
+            if (Dot(right, right) < 0.0001f)
             {
-                camera.up[0] = 0.0f;
-                camera.up[1] = 0.0f;
-                camera.up[2] =
-                    direction.y > 0.0f ? -1.0f : 1.0f;
+                right = { 1.0f, 0.0f, 0.0f };
             }
-            else
-            {
-                camera.up[0] = 0.0f;
-                camera.up[1] = 1.0f;
-                camera.up[2] = 0.0f;
-            }
+
+            up = Normalize(Cross(right, forward));
         }
     }
 
@@ -145,10 +232,6 @@ namespace CNode
         const ImVec2& viewportMax
     )
     {
-        constexpr float gizmoRadius = 34.0f;
-        constexpr float hitRadius = 12.0f;
-        constexpr float interactionRadius = 42.0f;
-
         GLFWwindow* window = glfwGetCurrentContext();
 
         const ImVec2 center(
@@ -156,9 +239,11 @@ namespace CNode
             viewportMin.y + 52.0f
         );
 
-        // Pulihkan kursor jika viewport menjadi terlalu kecil.
-        if (center.x - interactionRadius < viewportMin.x ||
-            center.y + interactionRadius > viewportMax.y)
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+        // Jangan biarkan kursor tertangkap jika viewport terlalu kecil.
+        if (center.x - InteractionRadius < viewportMin.x ||
+            center.y + InteractionRadius > viewportMax.y)
         {
             if (dragging)
             {
@@ -179,83 +264,105 @@ namespace CNode
             camera.target[2]
         };
 
-        const Vec3 offset = {
-            camera.position[0] - target.x,
-            camera.position[1] - target.y,
-            camera.position[2] - target.z
-        };
+        // ---------------------------------------------------------
+        // 1. Animasi perpindahan kamera menuju sumbu yang dipilih.
+        // ---------------------------------------------------------
 
-        const float distance = std::max(
-            std::sqrt(Dot(offset, offset)),
-            0.1f
-        );
-
-        const Vec3 forward = Normalize({
-            -offset.x,
-            -offset.y,
-            -offset.z
-            });
-
-        const Vec3 worldUp = {
-            0.0f,
-            1.0f,
-            0.0f
-        };
-
-        Vec3 right = Normalize(Cross(forward, worldUp));
-
-        if (Dot(right, right) < 0.0001f)
+        if (transitioning)
         {
-            right = { 1.0f, 0.0f, 0.0f };
+            transitionElapsed += ImGui::GetIO().DeltaTime;
+
+            const float progress = std::clamp(
+                transitionElapsed / transitionDuration,
+                0.0f,
+                1.0f
+            );
+
+            const float eased = EaseInOut(progress);
+
+            const Vec3 startPosition =
+                ReadArray(transitionStartPosition);
+
+            const Vec3 targetPosition =
+                ReadArray(transitionTargetPosition);
+
+            const Vec3 startUp =
+                ReadArray(transitionStartUp);
+
+            const Vec3 targetUp =
+                ReadArray(transitionTargetUp);
+
+            const Vec3 position = Lerp(
+                startPosition,
+                targetPosition,
+                eased
+            );
+
+            Vec3 up = Normalize(Lerp(
+                startUp,
+                targetUp,
+                eased
+            ));
+
+            // Hindari up vector nol atau hampir sejajar arah pandang.
+            const Vec3 viewDirection = Normalize({
+                target.x - position.x,
+                target.y - position.y,
+                target.z - position.z
+                });
+
+            if (Dot(up, up) < 0.0001f ||
+                std::abs(Dot(up, viewDirection)) > 0.995f)
+            {
+                up = targetUp;
+            }
+
+            WriteVector(camera.position, position);
+            WriteVector(camera.up, up);
+
+            if (progress >= 1.0f)
+            {
+                WriteVector(
+                    camera.position,
+                    targetPosition
+                );
+
+                WriteVector(
+                    camera.up,
+                    targetUp
+                );
+
+                transitioning = false;
+                transitionElapsed = 0.0f;
+            }
         }
 
-        const Vec3 up = Normalize(Cross(right, forward));
+        // ---------------------------------------------------------
+        // 2. Hitung orientasi kamera untuk menggambar gizmo.
+        // ---------------------------------------------------------
 
-        const std::array<Vec3, 3> axes = { {
-            { 1.0f, 0.0f, 0.0f },
-            { 0.0f, 1.0f, 0.0f },
-            { 0.0f, 0.0f, 1.0f }
-        } };
+        Vec3 forward;
+        Vec3 right;
+        Vec3 up;
 
-        const std::array<ImU32, 3> colors = { {
-            IM_COL32(235, 75, 75, 255),
-            IM_COL32(95, 205, 115, 255),
-            IM_COL32(80, 145, 255, 255)
-        } };
-
-        const char* labels[] = {
-            "X",
-            "Y",
-            "Z"
-        };
-
-        ImDrawList* drawList = ImGui::GetWindowDrawList();
-
-        drawList->AddCircleFilled(
-            center,
-            40.0f,
-            IM_COL32(25, 27, 31, 225),
-            32
-        );
-
-        drawList->AddCircle(
-            center,
-            40.0f,
-            IM_COL32(90, 95, 105, 220),
-            32,
-            1.0f
-        );
+        GetCameraBasis(camera, forward, right, up);
 
         const ImVec2 mouse = ImGui::GetIO().MousePos;
 
         const bool hovered = IsInside(
             mouse,
             center,
-            interactionRadius
+            InteractionRadius
         );
 
-        // Mulai drag ketika tombol kiri ditekan di area gizmo.
-        if (!dragging &&
+        const bool canInteract = !transitioning;
+
+        // ---------------------------------------------------------
+        // 3. Mulai interaksi ketika pengguna menekan tombol kiri.
+        // ---------------------------------------------------------
+
+        if (canInteract &&
+            !dragging &&
             hovered &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         {
@@ -266,17 +373,17 @@ namespace CNode
             lastMousePosition = mouse;
             selectedAxis = -1;
 
-            float closestDistance = hitRadius * hitRadius;
+            float closestDistance = HitRadius * HitRadius;
 
-            // Tentukan sumbu untuk aksi klik tanpa drag.
+            // Pilih endpoint sumbu terdekat dari posisi klik.
             for (int i = 0; i < 3; ++i)
             {
                 for (int sign : { -1, 1 })
                 {
                     const Vec3 direction = {
-                        axes[i].x * sign,
-                        axes[i].y * sign,
-                        axes[i].z * sign
+                        Axes[i].x * sign,
+                        Axes[i].y * sign,
+                        Axes[i].z * sign
                     };
 
                     const ImVec2 endpoint = ProjectAxis(
@@ -284,34 +391,33 @@ namespace CNode
                         right,
                         up,
                         center,
-                        gizmoRadius
+                        GizmoRadius
                     );
 
-                    const float d = DistanceSquared(
-                        mouse,
-                        endpoint
-                    );
+                    const float distanceSquared =
+                        DistanceSquared(mouse, endpoint);
 
-                    if (d < closestDistance)
+                    if (distanceSquared < closestDistance)
                     {
-                        closestDistance = d;
+                        closestDistance = distanceSquared;
                         selectedAxis = i;
                         selectedSign = static_cast<float>(sign);
                     }
                 }
             }
 
-            // Sembunyikan dan tangkap kursor selama drag.
             CursorVisibility::SetCaptured(window, true);
         }
 
-        // Orbit selama tombol kiri ditahan.
+        // ---------------------------------------------------------
+        // 4. Drag bebas pada gizmo tetap bisa mengorbit kamera.
+        // ---------------------------------------------------------
+
         if (dragging &&
             ImGui::IsMouseDown(ImGuiMouseButton_Left))
         {
             const ImVec2 delta = ImGui::GetIO().MouseDelta;
 
-            // Abaikan delta awal agar kamera tidak meloncat.
             if (ignoreFirstDragDelta)
             {
                 ignoreFirstDragDelta = false;
@@ -320,20 +426,25 @@ namespace CNode
             {
                 moved = true;
 
-                float yaw = std::atan2(
-                    offset.z,
-                    offset.x
+                const Vec3 offset = {
+                    camera.position[0] - target.x,
+                    camera.position[1] - target.y,
+                    camera.position[2] - target.z
+                };
+
+                const float distance = std::max(
+                    std::sqrt(Dot(offset, offset)),
+                    0.1f
                 );
 
-                float pitch = std::asin(
-                    std::clamp(
-                        offset.y / distance,
-                        -1.0f,
-                        1.0f
-                    )
-                );
+                float yaw = std::atan2(offset.z, offset.x);
 
-                // Samakan arah drag dengan OrbitNavigation.
+                float pitch = std::asin(std::clamp(
+                    offset.y / distance,
+                    -1.0f,
+                    1.0f
+                ));
+
                 yaw += delta.x * sensitivity;
                 pitch += delta.y * sensitivity;
 
@@ -363,20 +474,72 @@ namespace CNode
             lastMousePosition = mouse;
         }
 
-        // Lepas drag dan pulihkan kursor.
+        // ---------------------------------------------------------
+        // 5. Saat klik sumbu dilepas, mulai transisi yang halus.
+        // ---------------------------------------------------------
+
         if (dragging &&
             ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
-            // Klik sumbu tanpa menggeser mouse akan snap ke sumbu.
             if (!moved && selectedAxis >= 0)
             {
                 const Vec3 direction = {
-                    axes[selectedAxis].x * selectedSign,
-                    axes[selectedAxis].y * selectedSign,
-                    axes[selectedAxis].z * selectedSign
+                    Axes[selectedAxis].x * selectedSign,
+                    Axes[selectedAxis].y * selectedSign,
+                    Axes[selectedAxis].z * selectedSign
                 };
 
-                SnapToAxis(camera, direction);
+                const Vec3 offset = {
+                    camera.position[0] - target.x,
+                    camera.position[1] - target.y,
+                    camera.position[2] - target.z
+                };
+
+                const float distance = std::max(
+                    std::sqrt(Dot(offset, offset)),
+                    1.0f
+                );
+
+                const Vec3 targetPosition = {
+                    target.x + direction.x * distance,
+                    target.y + direction.y * distance,
+                    target.z + direction.z * distance
+                };
+
+                Vec3 targetUp = { 0.0f, 1.0f, 0.0f };
+
+                // Tampilan atas/bawah memerlukan up vector berbeda.
+                if (std::abs(direction.y) > 0.99f)
+                {
+                    targetUp = {
+                        0.0f,
+                        0.0f,
+                        direction.y > 0.0f ? -1.0f : 1.0f
+                    };
+                }
+
+                WriteArray(
+                    transitionStartPosition,
+                    ReadVector(camera.position)
+                );
+
+                WriteArray(
+                    transitionTargetPosition,
+                    targetPosition
+                );
+
+                WriteArray(
+                    transitionStartUp,
+                    ReadVector(camera.up)
+                );
+
+                WriteArray(
+                    transitionTargetUp,
+                    targetUp
+                );
+
+                transitionElapsed = 0.0f;
+                transitioning = true;
             }
 
             dragging = false;
@@ -387,80 +550,112 @@ namespace CNode
             CursorVisibility::SetCaptured(window, false);
         }
 
-        // Hitung ulang orientasi gizmo berdasarkan posisi kamera terbaru.
-        const Vec3 newOffset = {
-            camera.position[0] - target.x,
-            camera.position[1] - target.y,
-            camera.position[2] - target.z
-        };
+        // ---------------------------------------------------------
+        // 6. Gambar latar gizmo.
+        // ---------------------------------------------------------
 
-        const Vec3 newForward = Normalize({
-            -newOffset.x,
-            -newOffset.y,
-            -newOffset.z
-            });
+        const ImU32 background = hovered && canInteract
+            ? IM_COL32(34, 37, 44, 245)
+            : BackgroundColor;
 
-        Vec3 newRight = Normalize(
-            Cross(newForward, worldUp)
+        drawList->AddCircleFilled(
+            center,
+            GizmoBackgroundRadius,
+            background,
+            40
         );
 
-        if (Dot(newRight, newRight) < 0.0001f)
-        {
-            newRight = { 1.0f, 0.0f, 0.0f };
-        }
-
-        const Vec3 newUp = Normalize(
-            Cross(newRight, newForward)
+        drawList->AddCircle(
+            center,
+            GizmoBackgroundRadius + GizmoBorderThickness,
+            BorderColor,
+            40,
+            1.2f
         );
 
-        // Gambar sumbu positif dan negatif.
+        // Titik tengah dibuat kecil dan netral.
+        drawList->AddCircleFilled(
+            center,
+            2.5f,
+            IM_COL32(205, 210, 220, 210),
+            16
+        );
+
+        // ---------------------------------------------------------
+        // 7. Gambar sumbu, bulatan, dan label.
+        // ---------------------------------------------------------
+
+        GetCameraBasis(camera, forward, right, up);
+
         for (int i = 0; i < 3; ++i)
         {
             for (int sign : { -1, 1 })
             {
                 const Vec3 direction = {
-                    axes[i].x * sign,
-                    axes[i].y * sign,
-                    axes[i].z * sign
+                    Axes[i].x * sign,
+                    Axes[i].y * sign,
+                    Axes[i].z * sign
                 };
 
                 const ImVec2 endpoint = ProjectAxis(
                     direction,
-                    newRight,
-                    newUp,
+                    right,
+                    up,
                     center,
-                    gizmoRadius
+                    GizmoRadius
                 );
 
-                const bool front =
-                    Dot(direction, newForward) < 0.0f;
+                const bool facingCamera =
+                    Dot(direction, forward) < 0.0f;
 
-                const ImU32 color = front
-                    ? colors[i]
-                    : IM_COL32(100, 105, 115, 180);
+                const ImU32 color = facingCamera
+                    ? AxisColors[i]
+                    : DimColor(AxisColors[i]);
+
+                const float dotRadius = facingCamera
+                    ? AxisDotRadius
+                    : BackAxisDotRadius;
 
                 drawList->AddLine(
                     center,
                     endpoint,
                     color,
-                    front ? 3.0f : 2.0f
+                    facingCamera ? 3.0f : 2.0f
+                );
+
+                // Outline tipis memberi kontras pada bulatan.
+                drawList->AddCircleFilled(
+                    endpoint,
+                    dotRadius + 1.2f,
+                    IM_COL32(22, 24, 29, 235),
+                    24
                 );
 
                 drawList->AddCircleFilled(
                     endpoint,
-                    front ? 7.0f : 5.0f,
+                    dotRadius,
                     color,
-                    20
+                    24
                 );
 
-                drawList->AddText(
-                    ImVec2(
-                        endpoint.x - 4.0f,
-                        endpoint.y - 7.0f
-                    ),
-                    IM_COL32(255, 255, 255, 255),
-                    labels[i]
-                );
+                // Label hanya untuk ujung sumbu positif.
+                // Ujung negatif tetap berupa bulatan berwarna.
+                if (sign > 0)
+                {
+                    const char* label = AxisLabels[i];
+                    const ImVec2 textSize = ImGui::CalcTextSize(label);
+
+                    const ImVec2 textPosition(
+                        endpoint.x - textSize.x * 0.5f,
+                        endpoint.y - textSize.y * 0.5f
+                    );
+
+                    drawList->AddText(
+                        textPosition,
+                        TextColor,
+                        label
+                    );
+                }
             }
         }
     }

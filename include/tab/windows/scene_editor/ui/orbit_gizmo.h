@@ -4,6 +4,8 @@
 
 #include "imgui.h"
 
+#include <array>
+
 namespace CNode
 {
     class OrbitGizmo
@@ -19,6 +21,7 @@ namespace CNode
         bool dragging = false;
         bool moved = false;
         bool ignoreFirstDragDelta = false;
+        bool transitioning = false;
 
         ImVec2 lastMousePosition = ImVec2(0.0f, 0.0f);
 
@@ -26,5 +29,14 @@ namespace CNode
         float selectedSign = 1.0f;
 
         float sensitivity = 0.008f;
+
+        float transitionElapsed = 0.0f;
+        float transitionDuration = 0.28f;
+
+        std::array<float, 3> transitionStartPosition{};
+        std::array<float, 3> transitionTargetPosition{};
+
+        std::array<float, 3> transitionStartUp{};
+        std::array<float, 3> transitionTargetUp{};
     };
 }
