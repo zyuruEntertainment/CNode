@@ -5,6 +5,7 @@
 #include "tab/windows/scene_editor/navigation/zoom_navigation.h"
 #include "tab/windows/scene_editor/navigation/pan_navigation.h"
 #include "tab/windows/scene_editor/navigation/free_look_navigation.h"
+#include "tab/windows/scene_editor/ui/orbit_gizmo.h"
 
 #include "imgui.h"
 
@@ -143,21 +144,32 @@ namespace CNode
 
         if (texture != 0)
         {
+            const ImVec2 viewportMin = ImGui::GetCursorScreenPos();
+
             ImGui::Image(
                 (ImTextureID)(intptr_t)texture,
-                ImVec2(
-                    displayWidth,
-                    displayHeight
-                ),
+                ImVec2(displayWidth, displayHeight),
                 ImVec2(0.0f, 1.0f),
                 ImVec2(1.0f, 0.0f)
             );
 
-            GLFWwindow* window =
-                glfwGetCurrentContext();
+            const ImVec2 viewportMax(
+                viewportMin.x + displayWidth,
+                viewportMin.y + displayHeight
+            );
 
-            const bool viewportHovered =
-                ImGui::IsItemHovered();
+            DrawOrbitGizmo(
+                state->camera,
+                viewportMin,
+                viewportMax
+            );
+
+            GLFWwindow* window = glfwGetCurrentContext();
+
+            const bool viewportHovered = ImGui::IsMouseHoveringRect(
+                viewportMin,
+                viewportMax
+            );
 
             const bool freeLookActive =
                 state->freeLookNavigation.Update(
