@@ -206,6 +206,7 @@ add_executable(CNode
     src/tab/windows/scene_editor/navigation/pan_navigation.cpp
     src/tab/windows/scene_editor/navigation/free_look_navigation.cpp
     src/tab/windows/scene_editor/ui/orbit_gizmo.cpp
+    src/tab/windows/scene_editor/ui/pan_view_controller.cpp
 
 
     src/core/input/cursor_visibility.cpp

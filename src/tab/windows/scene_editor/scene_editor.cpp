@@ -6,6 +6,7 @@
 #include "tab/windows/scene_editor/navigation/pan_navigation.h"
 #include "tab/windows/scene_editor/navigation/free_look_navigation.h"
 #include "tab/windows/scene_editor/ui/orbit_gizmo.h"
+#include "tab/windows/scene_editor/ui/pan_view_controller.h"
 
 #include "imgui.h"
 
@@ -31,6 +32,7 @@ namespace CNode
             PanNavigation panNavigation;
             FreeLookNavigation freeLookNavigation;
             OrbitGizmo orbitGizmo;
+            PanViewController panViewController;
         };
 
         std::unordered_map<
@@ -55,6 +57,25 @@ namespace CNode
 
             return state.get();
         }
+
+        void DestroySceneEditorState(const char* title)
+        {
+            if (!title || !*title)
+                return;
+
+            const auto iterator = sceneEditors.find(title);
+
+            if (iterator == sceneEditors.end())
+                return;
+
+            if (iterator->second)
+            {
+                iterator->second->panViewController.Shutdown();
+                iterator->second->renderer.Shutdown();
+            }
+
+            sceneEditors.erase(iterator);
+        }
     }
 
     void DrawSceneEditor(
@@ -70,7 +91,7 @@ namespace CNode
             ImGui::End();
 
             if (open && !*open)
-                sceneEditors.erase(title);
+                DestroySceneEditorState(title);
 
             return;
         }
@@ -145,7 +166,8 @@ namespace CNode
 
         if (texture != 0)
         {
-            const ImVec2 viewportMin = ImGui::GetCursorScreenPos();
+            const ImVec2 viewportMin =
+                ImGui::GetCursorScreenPos();
 
             ImGui::Image(
                 (ImTextureID)(intptr_t)texture,
@@ -165,12 +187,20 @@ namespace CNode
                 viewportMax
             );
 
-            GLFWwindow* window = glfwGetCurrentContext();
+            const bool panControllerActive =
+                state->panViewController.Draw(
+                    viewportMin,
+                    viewportMax
+                );
 
-            const bool viewportHovered = ImGui::IsMouseHoveringRect(
-                viewportMin,
-                viewportMax
-            );
+            GLFWwindow* window =
+                glfwGetCurrentContext();
+
+            const bool viewportHovered =
+                ImGui::IsMouseHoveringRect(
+                    viewportMin,
+                    viewportMax
+                );
 
             const bool freeLookActive =
                 state->freeLookNavigation.Update(
@@ -185,7 +215,8 @@ namespace CNode
                     state->panNavigation.Update(
                         state->camera,
                         window,
-                        viewportHovered
+                        viewportHovered,
+                        panControllerActive
                     );
 
                 if (!panActive)
@@ -212,7 +243,10 @@ namespace CNode
         for (auto& entry : sceneEditors)
         {
             if (entry.second)
+            {
+                entry.second->panViewController.Shutdown();
                 entry.second->renderer.Shutdown();
+            }
         }
 
         sceneEditors.clear();

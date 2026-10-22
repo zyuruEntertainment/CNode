@@ -12,11 +12,13 @@ namespace CNode
         bool Update(
             SceneCamera& camera,
             GLFWwindow* window,
-            bool viewportHovered
+            bool viewportHovered,
+            bool controllerActive = false
         );
 
     private:
         bool panning = false;
+        bool controllerPanning = false;
         int ignoreMouseDeltaFrames = 0;
 
         float sensitivity = 0.0015f;

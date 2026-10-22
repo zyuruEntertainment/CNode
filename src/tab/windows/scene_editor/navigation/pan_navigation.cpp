@@ -11,7 +11,8 @@ namespace CNode
     bool PanNavigation::Update(
         SceneCamera& camera,
         GLFWwindow* window,
-        bool viewportHovered
+        bool viewportHovered,
+        bool controllerActive
     )
     {
         constexpr int panButton = ImGuiMouseButton_Middle;
@@ -26,24 +27,33 @@ namespace CNode
         const bool shiftDown = io.KeyShift;
 
         if (!panning &&
-            ImGui::IsMouseClicked(panButton) &&
-            shiftDown &&
-            viewportHovered)
+            ((ImGui::IsMouseClicked(panButton) &&
+                shiftDown &&
+                viewportHovered) ||
+                controllerActive))
         {
             panning = true;
+            controllerPanning = controllerActive;
             ignoreMouseDeltaFrames = startupFramesToIgnore;
 
-            CursorVisibility::SetCaptured(
-                window,
-                true
-            );
+            if (!controllerPanning)
+            {
+                CursorVisibility::SetCaptured(
+                    window,
+                    true
+                );
+            }
 
             return true;
         }
 
-        if (!middleDown)
+        const bool panInputDown = controllerPanning
+            ? controllerActive
+            : middleDown && shiftDown;
+
+        if (!panInputDown)
         {
-            if (panning)
+            if (panning && !controllerPanning)
             {
                 CursorVisibility::SetCaptured(
                     window,
@@ -52,6 +62,7 @@ namespace CNode
             }
 
             panning = false;
+            controllerPanning = false;
             ignoreMouseDeltaFrames = 0;
 
             return false;
