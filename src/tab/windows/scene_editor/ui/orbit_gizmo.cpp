@@ -1,4 +1,3 @@
-
 #include "tab/windows/scene_editor/ui/orbit_gizmo.h"
 
 #include "core/input/cursor_visibility.h"
@@ -108,8 +107,6 @@ namespace CNode
         float EaseInOut(float t)
         {
             t = std::clamp(t, 0.0f, 1.0f);
-
-            // Smoothstep: gerakan lembut di awal dan akhir.
             return t * t * (3.0f - 2.0f * t);
         }
 
@@ -241,13 +238,13 @@ namespace CNode
 
         ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-        // Jangan biarkan kursor tertangkap jika viewport terlalu kecil.
         if (center.x - InteractionRadius < viewportMin.x ||
             center.y + InteractionRadius > viewportMax.y)
         {
-            if (dragging)
+            if (cursorCaptured)
             {
                 CursorVisibility::SetCaptured(window, false);
+                cursorCaptured = false;
             }
 
             dragging = false;
@@ -263,10 +260,6 @@ namespace CNode
             camera.target[1],
             camera.target[2]
         };
-
-        // ---------------------------------------------------------
-        // 1. Animasi perpindahan kamera menuju sumbu yang dipilih.
-        // ---------------------------------------------------------
 
         if (transitioning)
         {
@@ -304,7 +297,6 @@ namespace CNode
                 eased
             ));
 
-            // Hindari up vector nol atau hampir sejajar arah pandang.
             const Vec3 viewDirection = Normalize({
                 target.x - position.x,
                 target.y - position.y,
@@ -322,24 +314,13 @@ namespace CNode
 
             if (progress >= 1.0f)
             {
-                WriteVector(
-                    camera.position,
-                    targetPosition
-                );
-
-                WriteVector(
-                    camera.up,
-                    targetUp
-                );
+                WriteVector(camera.position, targetPosition);
+                WriteVector(camera.up, targetUp);
 
                 transitioning = false;
                 transitionElapsed = 0.0f;
             }
         }
-
-        // ---------------------------------------------------------
-        // 2. Hitung orientasi kamera untuk menggambar gizmo.
-        // ---------------------------------------------------------
 
         Vec3 forward;
         Vec3 right;
@@ -357,10 +338,6 @@ namespace CNode
 
         const bool canInteract = !transitioning;
 
-        // ---------------------------------------------------------
-        // 3. Mulai interaksi ketika pengguna menekan tombol kiri.
-        // ---------------------------------------------------------
-
         if (canInteract &&
             !dragging &&
             hovered &&
@@ -375,7 +352,6 @@ namespace CNode
 
             float closestDistance = HitRadius * HitRadius;
 
-            // Pilih endpoint sumbu terdekat dari posisi klik.
             for (int i = 0; i < 3; ++i)
             {
                 for (int sign : { -1, 1 })
@@ -405,13 +381,7 @@ namespace CNode
                     }
                 }
             }
-
-            CursorVisibility::SetCaptured(window, true);
         }
-
-        // ---------------------------------------------------------
-        // 4. Drag bebas pada gizmo tetap bisa mengorbit kamera.
-        // ---------------------------------------------------------
 
         if (dragging &&
             ImGui::IsMouseDown(ImGuiMouseButton_Left))
@@ -424,7 +394,15 @@ namespace CNode
             }
             else if (delta.x != 0.0f || delta.y != 0.0f)
             {
+                const bool wasMoved = moved;
                 moved = true;
+
+                if (!wasMoved && !cursorCaptured)
+                {
+                    CursorVisibility::SetCaptured(window, true);
+                    cursorCaptured = true;
+                    ignoreFirstDragDelta = true;
+                }
 
                 const Vec3 offset = {
                     camera.position[0] - target.x,
@@ -474,10 +452,6 @@ namespace CNode
             lastMousePosition = mouse;
         }
 
-        // ---------------------------------------------------------
-        // 5. Saat klik sumbu dilepas, mulai transisi yang halus.
-        // ---------------------------------------------------------
-
         if (dragging &&
             ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
@@ -506,7 +480,7 @@ namespace CNode
                     target.z + direction.z * distance
                 };
 
-               Vec3 targetUp = { 0.0f, 1.0f, 0.0f };
+                Vec3 targetUp = { 0.0f, 1.0f, 0.0f };
 
                 if (selectedAxis == 1)
                 {
@@ -516,7 +490,6 @@ namespace CNode
                         selectedSign > 0.0f ? -1.0f : 1.0f
                     };
                 }
-
 
                 WriteArray(
                     transitionStartPosition,
@@ -555,9 +528,6 @@ namespace CNode
                     transitionElapsed = 0.0f;
                     transitioning = true;
                 }
-
-                transitionElapsed = 0.0f;
-                transitioning = true;
             }
 
             dragging = false;
@@ -565,12 +535,12 @@ namespace CNode
             ignoreFirstDragDelta = false;
             selectedAxis = -1;
 
-            CursorVisibility::SetCaptured(window, false);
+            if (cursorCaptured)
+            {
+                CursorVisibility::SetCaptured(window, false);
+                cursorCaptured = false;
+            }
         }
-
-        // ---------------------------------------------------------
-        // 6. Gambar latar gizmo.
-        // ---------------------------------------------------------
 
         const ImU32 background = hovered && canInteract
             ? IM_COL32(34, 37, 44, 245)
@@ -591,17 +561,12 @@ namespace CNode
             1.2f
         );
 
-        // Titik tengah dibuat kecil dan netral.
         drawList->AddCircleFilled(
             center,
             2.5f,
             IM_COL32(205, 210, 220, 210),
             16
         );
-
-        // ---------------------------------------------------------
-        // 7. Gambar sumbu, bulatan, dan label.
-        // ---------------------------------------------------------
 
         GetCameraBasis(camera, forward, right, up);
 
@@ -641,7 +606,6 @@ namespace CNode
                     facingCamera ? 3.0f : 2.0f
                 );
 
-                // Outline tipis memberi kontras pada bulatan.
                 drawList->AddCircleFilled(
                     endpoint,
                     dotRadius + 1.2f,
@@ -656,8 +620,6 @@ namespace CNode
                     24
                 );
 
-                // Label hanya untuk ujung sumbu positif.
-                // Ujung negatif tetap berupa bulatan berwarna.
                 if (sign > 0)
                 {
                     const char* label = AxisLabels[i];

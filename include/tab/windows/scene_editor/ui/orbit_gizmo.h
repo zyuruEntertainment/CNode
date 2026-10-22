@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "tab/windows/scene_editor/scene_camera.h"
@@ -28,6 +27,7 @@ namespace CNode
         bool moved = false;
         bool ignoreFirstDragDelta = false;
         bool transitioning = false;
+        bool cursorCaptured = false;
 
         ImVec2 lastMousePosition = ImVec2(0.0f, 0.0f);
 

@@ -7,16 +7,23 @@ namespace CNode
     class CursorVisibility
     {
     public:
-        // Tampilkan atau sembunyikan kursor.
         static void SetVisible(
             GLFWwindow* window,
             bool visible
         );
 
-        // Tangkap kursor untuk navigasi seperti orbit.
         static void SetCaptured(
             GLFWwindow* window,
             bool captured
+        );
+
+        static bool IsCaptured(
+            GLFWwindow* window
+        );
+
+    private:
+        static void Restore(
+            GLFWwindow* window
         );
     };
 }
