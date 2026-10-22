@@ -2,10 +2,14 @@
 #include "scene/window/logo.h"
 #include "registration/registration.h"
 #include "tab/windows/scene_editor/scene_editor.h"
+#include "core/input/cursor_visibility.h"
 
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
+
+
+#include <cfloat>
 
 #include <glad/gl.h>
 
@@ -143,7 +147,43 @@ namespace CNode
     {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
+
+        ImGuiIO& io = ImGui::GetIO();
+
+        const bool blockPointer =
+            CursorVisibility::ShouldBlockPointerInteraction(window);
+
+        float mouseDeltaX = 0.0f;
+        float mouseDeltaY = 0.0f;
+
+        if (blockPointer)
+        {
+            CursorVisibility::GetMouseDelta(
+                window,
+                mouseDeltaX,
+                mouseDeltaY
+            );
+
+            io.AddMousePosEvent(
+                -FLT_MAX,
+                -FLT_MAX
+            );
+        }
+
         ImGui::NewFrame();
+
+        if (blockPointer)
+        {
+            io.MousePos = ImVec2(
+                -FLT_MAX,
+                -FLT_MAX
+            );
+
+            io.MouseDelta = ImVec2(
+                mouseDeltaX,
+                mouseDeltaY
+            );
+        }
 
         editorFont.Apply();
 
@@ -156,14 +196,31 @@ namespace CNode
         int width = 0;
         int height = 0;
 
-        glfwGetFramebufferSize(window, &width, &height);
+        glfwGetFramebufferSize(
+            window,
+            &width,
+            &height
+        );
 
-        glViewport(0, 0, width, height);
+        glViewport(
+            0,
+            0,
+            width,
+            height
+        );
 
-        glClearColor(0.12f, 0.13f, 0.15f, 1.0f);
+        glClearColor(
+            0.12f,
+            0.13f,
+            0.15f,
+            1.0f
+        );
+
         glClear(GL_COLOR_BUFFER_BIT);
 
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        ImGui_ImplOpenGL3_RenderDrawData(
+            ImGui::GetDrawData()
+        );
     }
 
     void EditorWindow::Shutdown()

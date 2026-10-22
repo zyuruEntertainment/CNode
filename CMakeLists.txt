@@ -229,6 +229,7 @@ target_include_directories(CNode PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
     "${stb_SOURCE_DIR}"
+    "${CMAKE_CURRENT_BINARY_DIR}/gladsources/glad_gl_core_33/include"
 )
 
 target_link_libraries(CNode PRIVATE

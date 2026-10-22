@@ -21,8 +21,22 @@ namespace CNode
             GLFWwindow* window
         );
 
+        static bool ShouldBlockPointerInteraction(
+            GLFWwindow* window
+        );
+
+        static void GetMouseDelta(
+            GLFWwindow* window,
+            float& deltaX,
+            float& deltaY
+        );
+
     private:
         static void Restore(
+            GLFWwindow* window
+        );
+
+        static void ResetMousePosition(
             GLFWwindow* window
         );
     };

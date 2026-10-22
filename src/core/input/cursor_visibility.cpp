@@ -6,9 +6,17 @@ namespace CNode
 {
     namespace
     {
+        struct MousePositionState
+        {
+            double x = 0.0;
+            double y = 0.0;
+            bool initialized = false;
+        };
+
         std::unordered_map<GLFWwindow*, int> previousCursorModes;
         std::unordered_map<GLFWwindow*, int> requestedCursorModes;
         std::unordered_map<GLFWwindow*, bool> capturedWindows;
+        std::unordered_map<GLFWwindow*, MousePositionState> mousePositions;
     }
 
     void CursorVisibility::SetVisible(
@@ -24,6 +32,8 @@ namespace CNode
             : GLFW_CURSOR_HIDDEN;
 
         requestedCursorModes[window] = mode;
+
+        ResetMousePosition(window);
 
         if (IsCaptured(window))
             return;
@@ -55,6 +65,8 @@ namespace CNode
 
             capturedWindows[window] = true;
 
+            ResetMousePosition(window);
+
             glfwSetInputMode(
                 window,
                 GLFW_CURSOR,
@@ -72,6 +84,8 @@ namespace CNode
         Restore(window);
 
         previousCursorModes.erase(window);
+
+        ResetMousePosition(window);
     }
 
     bool CursorVisibility::IsCaptured(
@@ -85,6 +99,56 @@ namespace CNode
 
         return iterator != capturedWindows.end()
             && iterator->second;
+    }
+
+    bool CursorVisibility::ShouldBlockPointerInteraction(
+        GLFWwindow* window
+    )
+    {
+        if (!window)
+            return false;
+
+        if (IsCaptured(window))
+            return true;
+
+        const auto iterator = requestedCursorModes.find(window);
+
+        return iterator != requestedCursorModes.end()
+            && iterator->second == GLFW_CURSOR_HIDDEN;
+    }
+
+    void CursorVisibility::GetMouseDelta(
+        GLFWwindow* window,
+        float& deltaX,
+        float& deltaY
+    )
+    {
+        deltaX = 0.0f;
+        deltaY = 0.0f;
+
+        if (!window)
+            return;
+
+        double x = 0.0;
+        double y = 0.0;
+
+        glfwGetCursorPos(
+            window,
+            &x,
+            &y
+        );
+
+        MousePositionState& state = mousePositions[window];
+
+        if (state.initialized)
+        {
+            deltaX = static_cast<float>(x - state.x);
+            deltaY = static_cast<float>(y - state.y);
+        }
+
+        state.x = x;
+        state.y = y;
+        state.initialized = true;
     }
 
     void CursorVisibility::Restore(
@@ -122,5 +186,15 @@ namespace CNode
                 GLFW_CURSOR_NORMAL
             );
         }
+    }
+
+    void CursorVisibility::ResetMousePosition(
+        GLFWwindow* window
+    )
+    {
+        if (!window)
+            return;
+
+        mousePositions[window].initialized = false;
     }
 }
