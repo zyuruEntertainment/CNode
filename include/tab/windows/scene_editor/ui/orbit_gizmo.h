@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include "tab/windows/scene_editor/scene_camera.h"
@@ -16,6 +17,11 @@ namespace CNode
             const ImVec2& viewportMin,
             const ImVec2& viewportMax
         );
+
+        bool IsBusy() const
+        {
+            return dragging || transitioning;
+        }
 
     private:
         bool dragging = false;

@@ -13,19 +13,21 @@ namespace CNode
         bool viewportHovered
     )
     {
-        // Jangan zoom ketika tombol tengah dipakai untuk orbit.
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Middle))
-            return;
-
         if (!viewportHovered)
             return;
+
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
+            ImGui::IsMouseDown(ImGuiMouseButton_Middle) ||
+            ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        {
+            return;
+        }
 
         const float wheelDelta = ImGui::GetIO().MouseWheel;
 
         if (wheelDelta == 0.0f)
             return;
 
-        // Hitung posisi kamera relatif terhadap target orbit.
         const float offsetX =
             camera.position[0] - camera.target[0];
 
@@ -44,7 +46,6 @@ namespace CNode
         if (currentDistance <= 0.0001f)
             return;
 
-        // Scroll ke atas mendekat, scroll ke bawah menjauh.
         const float zoomFactor =
             std::exp(-wheelDelta * zoomSpeed);
 
@@ -54,8 +55,8 @@ namespace CNode
             maxDistance
         );
 
-        // Pertahankan arah kamera, ubah jaraknya saja.
-        const float scale = newDistance / currentDistance;
+        const float scale =
+            newDistance / currentDistance;
 
         camera.position[0] =
             camera.target[0] + offsetX * scale;

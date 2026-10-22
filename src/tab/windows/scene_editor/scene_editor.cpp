@@ -1,3 +1,4 @@
+
 #include "tab/windows/scene_editor/scene_editor.h"
 #include "tab/windows/scene_editor/scene_camera.h"
 #include "tab/windows/scene_editor/scene_renderer.h"
@@ -50,10 +51,7 @@ namespace CNode
             auto& state = sceneEditors[title];
 
             if (!state)
-            {
-                state =
-                    std::make_unique<SceneEditorState>();
-            }
+                state = std::make_unique<SceneEditorState>();
 
             return state.get();
         }
@@ -187,6 +185,9 @@ namespace CNode
                 viewportMax
             );
 
+            const bool gizmoBusy =
+                state->orbitGizmo.IsBusy();
+
             const bool panControllerActive =
                 state->panViewController.Draw(
                     viewportMin,
@@ -202,14 +203,19 @@ namespace CNode
                     viewportMax
                 );
 
-            const bool freeLookActive =
-                state->freeLookNavigation.Update(
-                    state->camera,
-                    window,
-                    viewportHovered
-                );
+            bool freeLookActive = false;
 
-            if (!freeLookActive)
+            if (!gizmoBusy)
+            {
+                freeLookActive =
+                    state->freeLookNavigation.Update(
+                        state->camera,
+                        window,
+                        viewportHovered
+                    );
+            }
+
+            if (!freeLookActive && !gizmoBusy)
             {
                 const bool panActive =
                     state->panNavigation.Update(
@@ -226,12 +232,20 @@ namespace CNode
                         window,
                         viewportHovered
                     );
-                }
 
-                state->zoomNavigation.Update(
-                    state->camera,
-                    viewportHovered
-                );
+                    if (!ImGui::IsMouseDown(
+                        ImGuiMouseButton_Left) &&
+                        !ImGui::IsMouseDown(
+                            ImGuiMouseButton_Middle) &&
+                        !ImGui::IsMouseDown(
+                            ImGuiMouseButton_Right))
+                    {
+                        state->zoomNavigation.Update(
+                            state->camera,
+                            viewportHovered
+                        );
+                    }
+                }
             }
         }
 
