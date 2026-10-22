@@ -20,6 +20,7 @@ namespace CNode
         constexpr float minRadius = 0.1f;
         constexpr float minPitch = -1.55334306f;
         constexpr float maxPitch = 1.55334306f;
+        constexpr float epsilon = 0.00001f;
         constexpr int startupFramesToIgnore = 2;
 
         const ImGuiIO& io = ImGui::GetIO();
@@ -32,23 +33,14 @@ namespace CNode
             orbiting = true;
             ignoreMouseDeltaFrames = startupFramesToIgnore;
 
-            CursorVisibility::SetCaptured(
-                window,
-                true
-            );
-
+            CursorVisibility::SetCaptured(window, true);
             return;
         }
 
         if (!ImGui::IsMouseDown(orbitButton))
         {
             if (orbiting)
-            {
-                CursorVisibility::SetCaptured(
-                    window,
-                    false
-                );
-            }
+                CursorVisibility::SetCaptured(window, false);
 
             orbiting = false;
             ignoreMouseDeltaFrames = 0;
@@ -88,41 +80,60 @@ namespace CNode
         if (radius < minRadius)
             return;
 
-        float yaw = std::atan2(
-            offsetZ,
-            offsetX
+        const float horizontalRadius = std::sqrt(
+            offsetX * offsetX +
+            offsetZ * offsetZ
         );
 
+        float yaw;
+
+        if (horizontalRadius > epsilon)
+        {
+            yaw = std::atan2(offsetZ, offsetX);
+        }
+        else
+        {
+            const float upX = camera.up[0];
+            const float upZ = camera.up[2];
+            const float upHorizontal = std::sqrt(
+                upX * upX + upZ * upZ
+            );
+
+            if (upHorizontal > epsilon)
+            {
+                yaw = std::atan2(-upZ, -upX);
+            }
+            else
+            {
+                yaw = 0.0f;
+            }
+        }
+
         float pitch = std::asin(
-            std::clamp(
-                offsetY / radius,
-                -1.0f,
-                1.0f
-            )
+            std::clamp(offsetY / radius, -1.0f, 1.0f)
         );
 
         yaw += deltaX * sensitivity;
-        pitch += deltaY * sensitivity;
-
         pitch = std::clamp(
-            pitch,
+            pitch - deltaY * sensitivity,
             minPitch,
             maxPitch
         );
 
-        const float horizontalRadius =
-            radius * std::cos(pitch);
+        const float cosPitch = std::cos(pitch);
+        const float horizontal = radius * cosPitch;
 
         camera.position[0] =
-            camera.target[0] +
-            horizontalRadius * std::cos(yaw);
+            camera.target[0] + horizontal * std::cos(yaw);
 
         camera.position[1] =
-            camera.target[1] +
-            radius * std::sin(pitch);
+            camera.target[1] + radius * std::sin(pitch);
 
         camera.position[2] =
-            camera.target[2] +
-            horizontalRadius * std::sin(yaw);
+            camera.target[2] + horizontal * std::sin(yaw);
+
+        camera.up[0] = 0.0f;
+        camera.up[1] = 1.0f;
+        camera.up[2] = 0.0f;
     }
 }

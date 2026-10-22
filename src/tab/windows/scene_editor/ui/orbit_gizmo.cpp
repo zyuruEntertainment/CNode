@@ -506,17 +506,17 @@ namespace CNode
                     target.z + direction.z * distance
                 };
 
-                Vec3 targetUp = { 0.0f, 1.0f, 0.0f };
+               Vec3 targetUp = { 0.0f, 1.0f, 0.0f };
 
-                // Tampilan atas/bawah memerlukan up vector berbeda.
-                if (std::abs(direction.y) > 0.99f)
+                if (selectedAxis == 1)
                 {
                     targetUp = {
                         0.0f,
                         0.0f,
-                        direction.y > 0.0f ? -1.0f : 1.0f
+                        selectedSign > 0.0f ? -1.0f : 1.0f
                     };
                 }
+
 
                 WriteArray(
                     transitionStartPosition,
