@@ -188,14 +188,15 @@ namespace CNode
             const bool gizmoBusy =
                 state->orbitGizmo.IsBusy();
 
+            GLFWwindow* window =
+                glfwGetCurrentContext();
+
             const bool panControllerActive =
                 state->panViewController.Draw(
+                    window,
                     viewportMin,
                     viewportMax
                 );
-
-            GLFWwindow* window =
-                glfwGetCurrentContext();
 
             const bool viewportHovered =
                 ImGui::IsMouseHoveringRect(

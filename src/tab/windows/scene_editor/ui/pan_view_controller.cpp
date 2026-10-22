@@ -1,6 +1,8 @@
 
 #include "tab/windows/scene_editor/ui/pan_view_controller.h"
 
+#include "core/input/cursor_visibility.h"
+
 #define NOMINMAX
 #include <glad/glad.h>
 #include <stb_image.h>
@@ -105,10 +107,13 @@ namespace CNode
             return false;
 
         texture = newTexture;
+        initialized = true;
+
         return true;
     }
 
     bool PanViewController::Draw(
+        GLFWwindow* window,
         const ImVec2& viewportMin,
         const ImVec2& viewportMax
     )
@@ -126,6 +131,17 @@ namespace CNode
             center.y - radius < viewportMin.y ||
             center.y + radius > viewportMax.y)
         {
+            if (cursorCaptured)
+            {
+                CursorVisibility::SetCaptured(
+                    capturedWindow,
+                    false
+                );
+
+                capturedWindow = nullptr;
+                cursorCaptured = false;
+            }
+
             return false;
         }
 
@@ -148,6 +164,27 @@ namespace CNode
         const bool active =
             ImGui::IsItemActive() &&
             ImGui::IsMouseDown(ImGuiMouseButton_Left);
+
+        if (active && !cursorCaptured && window)
+        {
+            CursorVisibility::SetCaptured(
+                window,
+                true
+            );
+
+            capturedWindow = window;
+            cursorCaptured = true;
+        }
+        else if (!active && cursorCaptured)
+        {
+            CursorVisibility::SetCaptured(
+                capturedWindow,
+                false
+            );
+
+            capturedWindow = nullptr;
+            cursorCaptured = false;
+        }
 
         ImDrawList* drawList = ImGui::GetWindowDrawList();
 
@@ -205,6 +242,17 @@ namespace CNode
 
     void PanViewController::Shutdown()
     {
+        if (cursorCaptured)
+        {
+            CursorVisibility::SetCaptured(
+                capturedWindow,
+                false
+            );
+
+            capturedWindow = nullptr;
+            cursorCaptured = false;
+        }
+
         if (texture != 0)
         {
             const GLuint textureId =
@@ -213,5 +261,7 @@ namespace CNode
             glDeleteTextures(1, &textureId);
             texture = 0;
         }
+
+        initialized = false;
     }
 }
