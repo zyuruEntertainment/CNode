@@ -1,6 +1,8 @@
+
 #include "tab/windows/scene_editor/ui/orbit_gizmo.h"
 
 #include "core/input/cursor_visibility.h"
+#include "tab/windows/scene_editor/navigation/orbit_navigation.h"
 
 #include "imgui.h"
 
@@ -14,8 +16,6 @@ namespace CNode
 {
     namespace
     {
-        constexpr float Pi = 3.14159265358979323846f;
-
         constexpr float GizmoRadius = 40.0f;
         constexpr float InteractionRadius = 52.0f;
         constexpr float HitRadius = 13.0f;
@@ -54,9 +54,9 @@ namespace CNode
             IM_COL32(83, 151, 255, 255)
         } };
 
-        constexpr std::array<const char*, 3> AxisLabels = { {
-            "X", "Y", "Z"
-        } };
+        constexpr std::array<const char*, 3> AxisLabels = {
+            { "X", "Y", "Z" }
+        };
 
         float Dot(const Vec3& a, const Vec3& b)
         {
@@ -80,9 +80,7 @@ namespace CNode
             const float length = std::sqrt(Dot(value, value));
 
             if (length < 0.00001f)
-            {
                 return { 0.0f, 0.0f, 0.0f };
-            }
 
             return {
                 value.x / length,
@@ -215,9 +213,7 @@ namespace CNode
             right = Normalize(Cross(forward, worldUp));
 
             if (Dot(right, right) < 0.0001f)
-            {
                 right = { 1.0f, 0.0f, 0.0f };
-            }
 
             up = Normalize(Cross(right, forward));
         }
@@ -350,6 +346,19 @@ namespace CNode
             lastMousePosition = mouse;
             selectedAxis = -1;
 
+            const float offsetX =
+                camera.position[0] - camera.target[0];
+
+            const float offsetZ =
+                camera.position[2] - camera.target[2];
+
+            if (offsetX * offsetX + offsetZ * offsetZ >
+                0.0000000001f)
+            {
+                lastYaw = std::atan2(offsetZ, offsetX);
+                hasLastYaw = true;
+            }
+
             float closestDistance = HitRadius * HitRadius;
 
             for (int i = 0; i < 3; ++i)
@@ -403,50 +412,17 @@ namespace CNode
                     cursorCaptured = true;
                     ignoreFirstDragDelta = true;
                 }
-
-                const Vec3 offset = {
-                    camera.position[0] - target.x,
-                    camera.position[1] - target.y,
-                    camera.position[2] - target.z
-                };
-
-                const float distance = std::max(
-                    std::sqrt(Dot(offset, offset)),
-                    0.1f
-                );
-
-                float yaw = std::atan2(offset.z, offset.x);
-
-                float pitch = std::asin(std::clamp(
-                    offset.y / distance,
-                    -1.0f,
-                    1.0f
-                ));
-
-                yaw += delta.x * sensitivity;
-                pitch += delta.y * sensitivity;
-
-                pitch = std::clamp(
-                    pitch,
-                    -Pi * 0.495f,
-                    Pi * 0.495f
-                );
-
-                const float horizontal =
-                    distance * std::cos(pitch);
-
-                camera.position[0] =
-                    target.x + horizontal * std::cos(yaw);
-
-                camera.position[1] =
-                    target.y + distance * std::sin(pitch);
-
-                camera.position[2] =
-                    target.z + horizontal * std::sin(yaw);
-
-                camera.up[0] = 0.0f;
-                camera.up[1] = 1.0f;
-                camera.up[2] = 0.0f;
+                else
+                {
+                    OrbitNavigation::ApplyDragDelta(
+                        camera,
+                        delta.x,
+                        delta.y,
+                        sensitivity,
+                        lastYaw,
+                        hasLastYaw
+                    );
+                }
             }
 
             lastMousePosition = mouse;
@@ -511,7 +487,8 @@ namespace CNode
                     targetUp
                 );
 
-                const Vec3 startPosition = ReadVector(camera.position);
+                const Vec3 startPosition =
+                    ReadVector(camera.position);
 
                 const Vec3 transitionDelta = {
                     targetPosition.x - startPosition.x,
@@ -623,7 +600,8 @@ namespace CNode
                 if (sign > 0)
                 {
                     const char* label = AxisLabels[i];
-                    const ImVec2 textSize = ImGui::CalcTextSize(label);
+                    const ImVec2 textSize =
+                        ImGui::CalcTextSize(label);
 
                     const ImVec2 textPosition(
                         endpoint.x - textSize.x * 0.5f,

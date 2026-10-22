@@ -15,6 +15,15 @@ namespace CNode
             bool viewportHovered
         );
 
+        static void ApplyDragDelta(
+            SceneCamera& camera,
+            float deltaX,
+            float deltaY,
+            float sensitivity,
+            float& lastYaw,
+            bool& hasLastYaw
+        );
+
     private:
         bool orbiting = false;
         bool hasLastYaw = false;

@@ -28,6 +28,7 @@ namespace CNode
         bool ignoreFirstDragDelta = false;
         bool transitioning = false;
         bool cursorCaptured = false;
+        bool hasLastYaw = false;
 
         ImVec2 lastMousePosition = ImVec2(0.0f, 0.0f);
 
@@ -35,6 +36,7 @@ namespace CNode
         float selectedSign = 1.0f;
 
         float sensitivity = 0.008f;
+        float lastYaw = 0.0f;
 
         float transitionElapsed = 0.0f;
         float transitionDuration = 0.28f;
