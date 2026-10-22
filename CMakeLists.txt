@@ -1,3 +1,4 @@
+
 cmake_minimum_required(VERSION 3.24)
 
 cmake_policy(SET CMP0169 OLD)
@@ -38,9 +39,30 @@ if(NOT stb_POPULATED)
 endif()
 
 set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui")
+set(GLAD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/glad")
 
 if(NOT EXISTS "${IMGUI_DIR}/imgui.cpp")
-    message(FATAL_ERROR "Dear ImGui not found in external/imgui")
+    message(FATAL_ERROR
+        "Dear ImGui not found in external/imgui"
+    )
+endif()
+
+if(NOT EXISTS "${GLAD_DIR}/include/glad/glad.h")
+    message(FATAL_ERROR
+        "GLAD header not found in external/glad/include/glad/glad.h"
+    )
+endif()
+
+if(NOT EXISTS "${GLAD_DIR}/include/KHR/khrplatform.h")
+    message(FATAL_ERROR
+        "GLAD KHR header not found"
+    )
+endif()
+
+if(NOT EXISTS "${GLAD_DIR}/src/glad.c")
+    message(FATAL_ERROR
+        "GLAD source not found in external/glad/src/glad.c"
+    )
 endif()
 
 find_package(OpenGL REQUIRED)
@@ -74,7 +96,6 @@ set(CNODE_REGISTRATION_INCLUDES
 )
 
 set(CNODE_REGISTRATION_CALLS "")
-
 set(CNODE_REGISTRATION_FUNCTIONS "")
 
 foreach(REGISTRATION_HEADER IN LISTS CNODE_REGISTRATION_HEADERS)
@@ -106,7 +127,8 @@ foreach(REGISTRATION_HEADER IN LISTS CNODE_REGISTRATION_HEADERS)
         "${REGISTRATION_FUNCTION_SUFFIX}"
     )
 
-    list(FIND CNODE_REGISTRATION_FUNCTIONS
+    list(
+        FIND CNODE_REGISTRATION_FUNCTIONS
         "${REGISTRATION_FUNCTION_SUFFIX}"
         REGISTRATION_FUNCTION_INDEX
     )
@@ -117,7 +139,8 @@ foreach(REGISTRATION_HEADER IN LISTS CNODE_REGISTRATION_HEADERS)
         )
     endif()
 
-    list(APPEND CNODE_REGISTRATION_FUNCTIONS
+    list(
+        APPEND CNODE_REGISTRATION_FUNCTIONS
         "${REGISTRATION_FUNCTION_SUFFIX}"
     )
 
@@ -161,18 +184,8 @@ message(STATUS
     "CNode: Found ${CNODE_REGISTRATION_COUNT} feature registration headers"
 )
 
-FetchContent_Declare(
-    glad
-    GIT_REPOSITORY https://github.com/Dav1dde/glad.git
-    GIT_TAG v2.0.8
-    SOURCE_SUBDIR cmake
-)
-
-FetchContent_MakeAvailable(glad)
-
-glad_add_library(glad_gl_core_33
-    REPRODUCIBLE
-    API gl:core=3.3
+message(STATUS
+    "CNode: Using external GLAD from ${GLAD_DIR}"
 )
 
 add_executable(CNode
@@ -201,16 +214,18 @@ add_executable(CNode
     src/tab/windows/scene_editor/scene_grid.cpp
     src/tab/windows/scene_editor/scene_axis.cpp
     src/tab/windows/scene_editor/scene_renderer.cpp
+
     src/tab/windows/scene_editor/navigation/orbit_navigation.cpp
     src/tab/windows/scene_editor/navigation/zoom_navigation.cpp
     src/tab/windows/scene_editor/navigation/pan_navigation.cpp
     src/tab/windows/scene_editor/navigation/free_look_navigation.cpp
+
     src/tab/windows/scene_editor/ui/orbit_gizmo.cpp
     src/tab/windows/scene_editor/ui/pan_view_controller.cpp
 
-
     src/core/input/cursor_visibility.cpp
 
+    "${GLAD_DIR}/src/glad.c"
     "${CNODE_REGISTRATION_SOURCE}"
 
     "${IMGUI_DIR}/imgui.cpp"
@@ -220,22 +235,24 @@ add_executable(CNode
 
     "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
     "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
- "src/tab/windows/scene_editor/navigation/pan_navigation.cpp" "include/tab/windows/scene_editor/navigation/free_look_navigation.h" "src/tab/windows/scene_editor/navigation/free_look_navigation.cpp")
+)
 
-target_compile_definitions(CNode PRIVATE GLFW_INCLUDE_NONE)
+target_compile_definitions(CNode PRIVATE
+    GLFW_INCLUDE_NONE
+)
 
 target_include_directories(CNode PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
-    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external"
+    "${GLAD_DIR}/include"
+    "${IMGUI_DIR}"
+    "${IMGUI_DIR}/backends"
     "${stb_SOURCE_DIR}"
-    "${CMAKE_CURRENT_BINARY_DIR}/gladsources/glad_gl_core_33/include"
 )
 
 target_link_libraries(CNode PRIVATE
     glfw
     OpenGL::GL
-    glad_gl_core_33
 )
 
 set_property(

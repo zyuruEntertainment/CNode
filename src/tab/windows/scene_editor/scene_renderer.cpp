@@ -3,7 +3,7 @@
 #include "tab/windows/scene_editor/scene_axis.h"
 
 #define NOMINMAX
-#include <glad/gl.h>
+#include <glad/glad.h>
 
 #include <algorithm>
 #include <cstddef>

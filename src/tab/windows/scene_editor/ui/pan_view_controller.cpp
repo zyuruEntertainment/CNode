@@ -2,7 +2,7 @@
 #include "tab/windows/scene_editor/ui/pan_view_controller.h"
 
 #define NOMINMAX
-#include <glad/gl.h>
+#include <glad/glad.h>
 #include <stb_image.h>
 
 #include <algorithm>

@@ -1,3 +1,4 @@
+
 #include "scene/window/editor.h"
 #include "scene/window/logo.h"
 #include "registration/registration.h"
@@ -8,11 +9,8 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 
-
 #include <cfloat>
-
-#include <glad/gl.h>
-
+#include <glad/glad.h>
 #include <iostream>
 
 namespace CNode
@@ -63,8 +61,8 @@ namespace CNode
         glfwMakeContextCurrent(window);
         glfwSwapInterval(1);
 
-        if (!gladLoadGL(
-            reinterpret_cast<GLADloadfunc>(glfwGetProcAddress)
+        if (!gladLoadGLLoader(
+            reinterpret_cast<GLADloadproc>(glfwGetProcAddress)
         ))
         {
             std::cerr << "CNode: Failed to initialize GLAD.\n";
