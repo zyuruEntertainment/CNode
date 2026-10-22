@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "tab/windows/scene_editor/scene_camera.h"
@@ -18,10 +17,11 @@ namespace CNode
 
     private:
         bool orbiting = false;
+        bool hasLastYaw = false;
 
-        // Abaikan delta mouse sementara setelah orbit dimulai.
         int ignoreMouseDeltaFrames = 0;
 
         float sensitivity = 0.005f;
+        float lastYaw = 0.0f;
     };
 }

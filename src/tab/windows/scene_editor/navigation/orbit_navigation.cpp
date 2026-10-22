@@ -1,4 +1,3 @@
-
 #include "tab/windows/scene_editor/navigation/orbit_navigation.h"
 
 #include "core/input/cursor_visibility.h"
@@ -32,6 +31,18 @@ namespace CNode
         {
             orbiting = true;
             ignoreMouseDeltaFrames = startupFramesToIgnore;
+
+            const float offsetX =
+                camera.position[0] - camera.target[0];
+
+            const float offsetZ =
+                camera.position[2] - camera.target[2];
+
+            if (offsetX * offsetX + offsetZ * offsetZ > epsilon * epsilon)
+            {
+                lastYaw = std::atan2(offsetZ, offsetX);
+                hasLastYaw = true;
+            }
 
             CursorVisibility::SetCaptured(window, true);
             return;
@@ -85,28 +96,19 @@ namespace CNode
             offsetZ * offsetZ
         );
 
-        float yaw;
+        float yaw = lastYaw;
 
         if (horizontalRadius > epsilon)
         {
             yaw = std::atan2(offsetZ, offsetX);
+            lastYaw = yaw;
+            hasLastYaw = true;
         }
-        else
+        else if (!hasLastYaw)
         {
-            const float upX = camera.up[0];
-            const float upZ = camera.up[2];
-            const float upHorizontal = std::sqrt(
-                upX * upX + upZ * upZ
-            );
-
-            if (upHorizontal > epsilon)
-            {
-                yaw = std::atan2(-upZ, -upX);
-            }
-            else
-            {
-                yaw = 0.0f;
-            }
+            yaw = 0.0f;
+            lastYaw = yaw;
+            hasLastYaw = true;
         }
 
         float pitch = std::asin(
@@ -114,11 +116,14 @@ namespace CNode
         );
 
         yaw += deltaX * sensitivity;
+
         pitch = std::clamp(
-            pitch - deltaY * sensitivity,
+            pitch + deltaY * sensitivity,
             minPitch,
             maxPitch
         );
+
+        lastYaw = yaw;
 
         const float cosPitch = std::cos(pitch);
         const float horizontal = radius * cosPitch;
