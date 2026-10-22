@@ -538,6 +538,24 @@ namespace CNode
                     targetUp
                 );
 
+                const Vec3 startPosition = ReadVector(camera.position);
+
+                const Vec3 transitionDelta = {
+                    targetPosition.x - startPosition.x,
+                    targetPosition.y - startPosition.y,
+                    targetPosition.z - startPosition.z
+                };
+
+                const float transitionDistance = std::sqrt(
+                    Dot(transitionDelta, transitionDelta)
+                );
+
+                if (transitionDistance > 0.001f)
+                {
+                    transitionElapsed = 0.0f;
+                    transitioning = true;
+                }
+
                 transitionElapsed = 0.0f;
                 transitioning = true;
             }
