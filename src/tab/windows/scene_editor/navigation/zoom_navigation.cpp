@@ -1,4 +1,3 @@
-
 #include "tab/windows/scene_editor/navigation/zoom_navigation.h"
 
 #include "imgui.h"
@@ -10,23 +9,21 @@ namespace CNode
 {
     void ZoomNavigation::Update(
         SceneCamera& camera,
-        bool viewportHovered
+        bool viewportHovered,
+        bool controllerActive,
+        float controllerDeltaY
     )
     {
-        if (!viewportHovered)
+        if (!controllerActive && !viewportHovered)
             return;
 
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
-            ImGui::IsMouseDown(ImGuiMouseButton_Middle) ||
-            ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        if (!controllerActive &&
+            (ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
+                ImGui::IsMouseDown(ImGuiMouseButton_Middle) ||
+                ImGui::IsMouseDown(ImGuiMouseButton_Right)))
         {
             return;
         }
-
-        const float wheelDelta = ImGui::GetIO().MouseWheel;
-
-        if (wheelDelta == 0.0f)
-            return;
 
         const float offsetX =
             camera.position[0] - camera.target[0];
@@ -46,8 +43,29 @@ namespace CNode
         if (currentDistance <= 0.0001f)
             return;
 
-        const float zoomFactor =
-            std::exp(-wheelDelta * zoomSpeed);
+        float zoomFactor = 1.0f;
+
+        if (controllerActive)
+        {
+            if (controllerDeltaY == 0.0f)
+                return;
+
+            zoomFactor = std::exp(
+                controllerDeltaY * zoomSpeed
+            );
+        }
+        else
+        {
+            const float wheelDelta =
+                ImGui::GetIO().MouseWheel;
+
+            if (wheelDelta == 0.0f)
+                return;
+
+            zoomFactor = std::exp(
+                -wheelDelta * zoomSpeed
+            );
+        }
 
         const float newDistance = std::clamp(
             currentDistance * zoomFactor,

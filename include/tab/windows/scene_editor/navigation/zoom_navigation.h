@@ -9,7 +9,9 @@ namespace CNode
     public:
         void Update(
             SceneCamera& camera,
-            bool viewportHovered
+            bool viewportHovered,
+            bool controllerActive = false,
+            float controllerDeltaY = 0.0f
         );
 
     private:

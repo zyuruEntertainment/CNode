@@ -8,6 +8,7 @@
 #include "tab/windows/scene_editor/navigation/free_look_navigation.h"
 #include "tab/windows/scene_editor/ui/orbit_gizmo.h"
 #include "tab/windows/scene_editor/ui/pan_view_controller.h"
+#include "tab/windows/scene_editor/ui/zoom_view_controller.h"
 
 #include "imgui.h"
 
@@ -34,6 +35,7 @@ namespace CNode
             FreeLookNavigation freeLookNavigation;
             OrbitGizmo orbitGizmo;
             PanViewController panViewController;
+            ZoomViewController zoomViewController;
         };
 
         std::unordered_map<
@@ -69,6 +71,7 @@ namespace CNode
             if (iterator->second)
             {
                 iterator->second->panViewController.Shutdown();
+                iterator->second->zoomViewController.Shutdown();
                 iterator->second->renderer.Shutdown();
             }
 
@@ -198,53 +201,67 @@ namespace CNode
                     viewportMax
                 );
 
+            const bool zoomControllerActive =
+                state->zoomViewController.Draw(
+                    window,
+                    viewportMin,
+                    viewportMax
+                );
+
             const bool viewportHovered =
                 ImGui::IsMouseHoveringRect(
                     viewportMin,
                     viewportMax
                 );
 
-            bool freeLookActive = false;
-
-            if (!gizmoBusy)
+            if (zoomControllerActive)
             {
-                freeLookActive =
+                state->zoomNavigation.Update(
+                    state->camera,
+                    viewportHovered,
+                    true,
+                    state->zoomViewController.GetDragDeltaY()
+                );
+            }
+            else if (!gizmoBusy)
+            {
+                bool freeLookActive =
                     state->freeLookNavigation.Update(
                         state->camera,
                         window,
                         viewportHovered
                     );
-            }
 
-            if (!freeLookActive && !gizmoBusy)
-            {
-                const bool panActive =
-                    state->panNavigation.Update(
-                        state->camera,
-                        window,
-                        viewportHovered,
-                        panControllerActive
-                    );
-
-                if (!panActive)
+                if (!freeLookActive)
                 {
-                    state->orbitNavigation.Update(
-                        state->camera,
-                        window,
-                        viewportHovered
-                    );
-
-                    if (!ImGui::IsMouseDown(
-                        ImGuiMouseButton_Left) &&
-                        !ImGui::IsMouseDown(
-                            ImGuiMouseButton_Middle) &&
-                        !ImGui::IsMouseDown(
-                            ImGuiMouseButton_Right))
-                    {
-                        state->zoomNavigation.Update(
+                    const bool panActive =
+                        state->panNavigation.Update(
                             state->camera,
+                            window,
+                            viewportHovered,
+                            panControllerActive
+                        );
+
+                    if (!panActive)
+                    {
+                        state->orbitNavigation.Update(
+                            state->camera,
+                            window,
                             viewportHovered
                         );
+
+                        if (!ImGui::IsMouseDown(
+                            ImGuiMouseButton_Left) &&
+                            !ImGui::IsMouseDown(
+                                ImGuiMouseButton_Middle) &&
+                            !ImGui::IsMouseDown(
+                                ImGuiMouseButton_Right))
+                        {
+                            state->zoomNavigation.Update(
+                                state->camera,
+                                viewportHovered
+                            );
+                        }
                     }
                 }
             }
@@ -260,6 +277,7 @@ namespace CNode
             if (entry.second)
             {
                 entry.second->panViewController.Shutdown();
+                entry.second->zoomViewController.Shutdown();
                 entry.second->renderer.Shutdown();
             }
         }
