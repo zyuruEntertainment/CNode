@@ -128,8 +128,9 @@ namespace CNode
         dragDeltaY = 0.0f;
 
         const ImVec2 center(
-            viewportMax.x - radius * 3.0f - 18.0f,
+            viewportMax.x - radius - 12.0f,
             (viewportMin.y + viewportMax.y) * 0.5f
+            + radius * 2.0f + 8.0f
         );
 
         if (center.x - radius < viewportMin.x ||
