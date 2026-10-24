@@ -12,8 +12,6 @@ namespace CNode
             return;
         }
 
-        // Object List sengaja dikosongkan untuk pengujian registrasi.
-
         ImGui::End();
     }
 }

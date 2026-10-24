@@ -12,8 +12,6 @@ namespace CNode
             return;
         }
 
-        // Node Graph sengaja dikosongkan untuk pengujian registrasi.
-
         ImGui::End();
     }
 }

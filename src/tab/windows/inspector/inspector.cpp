@@ -1,4 +1,3 @@
-
 #include "tab/windows/inspector/inspector.h"
 
 #include "imgui.h"
@@ -12,8 +11,6 @@ namespace CNode
             ImGui::End();
             return;
         }
-
-        // Inspector sengaja dikosongkan untuk pengujian registrasi.
 
         ImGui::End();
     }

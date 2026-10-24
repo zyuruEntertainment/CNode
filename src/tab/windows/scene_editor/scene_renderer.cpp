@@ -439,11 +439,9 @@ namespace CNode
             viewProjection
         );
 
-        // grid dirender lebih dahulu
         glBindVertexArray(gridVertexArray);
         glDrawArrays(GL_LINES, 0, gridVertexCount);
 
-        // axis dirender terpisah
         glBindVertexArray(axisVertexArray);
         glDrawArrays(GL_LINES, 0, axisVertexCount);
 

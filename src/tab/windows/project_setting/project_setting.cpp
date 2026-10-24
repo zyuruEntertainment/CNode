@@ -12,7 +12,6 @@ namespace CNode
             return;
         }
 
-        // Kosong untuk pengujian sistem multi-window.
         ImGui::End();
     }
 }
