@@ -9,6 +9,7 @@
 #include "tab/windows/scene_editor/ui/orbit_gizmo.h"
 #include "tab/windows/scene_editor/ui/pan_view_controller.h"
 #include "tab/windows/scene_editor/ui/zoom_view_controller.h"
+#include "tab/windows/scene_editor/ui/box_selection.h"
 
 #include "imgui.h"
 
@@ -36,6 +37,7 @@ namespace CNode
             OrbitGizmo orbitGizmo;
             PanViewController panViewController;
             ZoomViewController zoomViewController;
+            BoxSelection boxSelection;
         };
 
         std::unordered_map<
@@ -208,11 +210,29 @@ namespace CNode
                     viewportMax
                 );
 
-            const bool viewportHovered =
+            bool viewportHovered =
                 ImGui::IsMouseHoveringRect(
                     viewportMin,
                     viewportMax
                 );
+
+            if (!viewportHovered)
+            {
+                double mx = 0.0;
+                double my = 0.0;
+                glfwGetCursorPos(window, &mx, &my);
+
+                const ImVec2 mousePos(static_cast<float>(mx), static_cast<float>(my));
+                if (mousePos.x >= viewportMin.x && mousePos.x <= viewportMax.x &&
+                    mousePos.y >= viewportMin.y && mousePos.y <= viewportMax.y)
+                {
+                    viewportHovered = true;
+                }
+            }
+
+            bool freeLookActive = false;
+            bool panActive = false;
+            bool orbitActive = false;
 
             if (zoomControllerActive)
             {
@@ -225,7 +245,7 @@ namespace CNode
             }
             else if (!gizmoBusy)
             {
-                bool freeLookActive =
+                freeLookActive =
                     state->freeLookNavigation.Update(
                         state->camera,
                         window,
@@ -234,7 +254,7 @@ namespace CNode
 
                 if (!freeLookActive)
                 {
-                    const bool panActive =
+                    panActive =
                         state->panNavigation.Update(
                             state->camera,
                             window,
@@ -249,6 +269,7 @@ namespace CNode
                             window,
                             viewportHovered
                         );
+                        orbitActive = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
 
                         if (!ImGui::IsMouseDown(
                             ImGuiMouseButton_Left) &&
@@ -265,6 +286,20 @@ namespace CNode
                     }
                 }
             }
+
+            state->boxSelection.Draw(
+                window,
+                viewportMin,
+                viewportMax,
+                viewportHovered,
+                gizmoBusy,
+                false,
+                panControllerActive,
+                zoomControllerActive,
+                freeLookActive,
+                panActive,
+                orbitActive
+            );
         }
 
         ImGui::End();

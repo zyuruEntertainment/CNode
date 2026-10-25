@@ -16,24 +16,24 @@ namespace CNode
 {
     namespace
     {
-        constexpr float GizmoRadius = 40.0f;
-        constexpr float InteractionRadius = 52.0f;
-        constexpr float HitRadius = 13.0f;
+        constexpr float GizmoRadius = 38.0f;
+        constexpr float InteractionRadius = 48.0f;
+        constexpr float HitRadius = 12.0f;
 
-        constexpr float AxisDotRadius = 10.0f;
-        constexpr float BackAxisDotRadius = 5.5f;
+        constexpr float AxisDotRadius = 9.0f;
+        constexpr float BackAxisDotRadius = 5.0f;
 
-        constexpr float GizmoBackgroundRadius = 48.0f;
-        constexpr float GizmoBorderThickness = 1.2f;
+        constexpr float GizmoBackgroundRadius = 44.0f;
+        constexpr float GizmoBorderThickness = 1.0f;
 
         constexpr ImU32 BackgroundColor =
-            IM_COL32(25, 27, 32, 235);
+            IM_COL32(24, 26, 32, 210);
 
         constexpr ImU32 BorderColor =
-            IM_COL32(82, 88, 99, 230);
+            IM_COL32(92, 98, 110, 190);
 
         constexpr ImU32 TextColor =
-            IM_COL32(245, 247, 250, 255);
+            IM_COL32(248, 249, 251, 255);
 
         struct Vec3
         {
@@ -228,8 +228,8 @@ namespace CNode
         GLFWwindow* window = glfwGetCurrentContext();
 
         const ImVec2 center(
-            viewportMax.x - 52.0f,
-            viewportMin.y + 52.0f
+            viewportMax.x - 56.0f,
+            viewportMin.y + 56.0f
         );
 
         ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -520,86 +520,119 @@ namespace CNode
         }
 
         const ImU32 background = hovered && canInteract
-            ? IM_COL32(34, 37, 44, 245)
+            ? IM_COL32(36, 40, 48, 230)
             : BackgroundColor;
 
         drawList->AddCircleFilled(
             center,
             GizmoBackgroundRadius,
             background,
-            40
+            48
         );
 
         drawList->AddCircle(
             center,
-            GizmoBackgroundRadius + GizmoBorderThickness,
+            GizmoBackgroundRadius,
             BorderColor,
-            40,
-            1.2f
+            48,
+            GizmoBorderThickness
         );
 
         drawList->AddCircleFilled(
             center,
-            2.5f,
-            IM_COL32(205, 210, 220, 210),
+            2.0f,
+            IM_COL32(220, 224, 230, 220),
             16
         );
 
         GetCameraBasis(camera, forward, right, up);
 
+        struct GizmoElement
+        {
+            int axisIndex;
+            int sign;
+            Vec3 direction;
+            float depth;
+        };
+
+        GizmoElement elements[6];
+        int elementCount = 0;
+
         for (int i = 0; i < 3; ++i)
         {
             for (int sign : { -1, 1 })
             {
-                const Vec3 direction = {
-                    Axes[i].x * sign,
-                    Axes[i].y * sign,
-                    Axes[i].z * sign
+                Vec3 direction = {
+                    Axes[i].x * static_cast<float>(sign),
+                    Axes[i].y * static_cast<float>(sign),
+                    Axes[i].z * static_cast<float>(sign)
                 };
+                direction = Normalize(direction);
 
-                const ImVec2 endpoint = ProjectAxis(
+                elements[elementCount++] = {
+                    i,
+                    sign,
                     direction,
-                    right,
-                    up,
-                    center,
-                    GizmoRadius
-                );
+                    Dot(direction, forward)
+                };
+            }
+        }
 
-                const bool facingCamera =
-                    Dot(direction, forward) < 0.0f;
+        for (int i = 0; i < elementCount - 1; ++i)
+        {
+            for (int j = i + 1; j < elementCount; ++j)
+            {
+                if (elements[j].depth > elements[i].depth)
+                {
+                    const GizmoElement temp = elements[i];
+                    elements[i] = elements[j];
+                    elements[j] = temp;
+                }
+            }
+        }
 
-                const ImU32 color = facingCamera
-                    ? AxisColors[i]
-                    : DimColor(AxisColors[i]);
+        for (int e = 0; e < elementCount; ++e)
+        {
+            const GizmoElement& element = elements[e];
 
-                const float dotRadius = facingCamera
-                    ? AxisDotRadius
-                    : BackAxisDotRadius;
+            const ImVec2 endpoint = ProjectAxis(
+                element.direction,
+                right,
+                up,
+                center,
+                GizmoRadius
+            );
+
+            const bool facingCamera = element.depth < 0.0f;
+
+            if (facingCamera)
+            {
+                const ImU32 color = AxisColors[element.axisIndex];
 
                 drawList->AddLine(
                     center,
                     endpoint,
                     color,
-                    facingCamera ? 3.0f : 2.0f
+                    2.2f
                 );
 
                 drawList->AddCircleFilled(
                     endpoint,
-                    dotRadius + 1.2f,
-                    IM_COL32(22, 24, 29, 235),
-                    24
+                    AxisDotRadius + 1.0f,
+                    IM_COL32(18, 20, 26, 220),
+                    32
                 );
 
                 drawList->AddCircleFilled(
                     endpoint,
-                    dotRadius,
+                    AxisDotRadius,
                     color,
-                    24
+                    32
                 );
 
-                if (sign > 0)
+                if (element.sign > 0)
                 {
-                    const char* label = AxisLabels[i];
+                    const char* label = AxisLabels[element.axisIndex];
                     const ImVec2 textSize =
                         ImGui::CalcTextSize(label);
 
@@ -611,6 +644,58 @@ namespace CNode
                     drawList->AddText(
                         textPosition,
                         TextColor,
+                        label
+                    );
+                }
+            }
+            else
+            {
+                const float backFactor = std::clamp(
+                    1.0f - element.depth * 0.8f,
+                    0.25f,
+                    0.7f
+                );
+                ImU32 color = DimColor(AxisColors[element.axisIndex]);
+
+                const int alpha =
+                    static_cast<int>(backFactor * 160.0f);
+                color = (color & 0x00FFFFFF) | (static_cast<ImU32>(alpha) << IM_COL32_A_SHIFT);
+
+                const float dotRadius =
+                    BackAxisDotRadius * (0.8f + backFactor * 0.25f);
+
+                drawList->AddLine(
+                    center,
+                    endpoint,
+                    color,
+                    1.4f
+                );
+
+                drawList->AddCircleFilled(
+                    endpoint,
+                    dotRadius,
+                    color,
+                    32
+                );
+
+                if (element.sign > 0)
+                {
+                    const char* label = AxisLabels[element.axisIndex];
+                    const ImVec2 textSize =
+                        ImGui::CalcTextSize(label);
+
+                    const ImVec2 textPosition(
+                        endpoint.x - textSize.x * 0.5f,
+                        endpoint.y - textSize.y * 0.5f
+                    );
+
+                    const ImU32 textColor =
+                        (TextColor & 0x00FFFFFF) |
+                        (static_cast<ImU32>(static_cast<int>(backFactor * 200.0f)) << IM_COL32_A_SHIFT);
+
+                    drawList->AddText(
+                        textPosition,
+                        textColor,
                         label
                     );
                 }

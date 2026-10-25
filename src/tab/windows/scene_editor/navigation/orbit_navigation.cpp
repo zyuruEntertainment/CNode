@@ -110,10 +110,10 @@ namespace CNode
 
         const ImGuiIO& io = ImGui::GetIO();
 
-        if (ImGui::IsMouseClicked(orbitButton) &&
+        if (!orbiting &&
+            ImGui::IsMouseDown(orbitButton) &&
             viewportHovered &&
-            !io.KeyShift &&
-            !orbiting)
+            !io.KeyShift)
         {
             orbiting = true;
             ignoreMouseDeltaFrames = startupFramesToIgnore;

@@ -375,6 +375,18 @@ namespace CNode
             std::cerr
                 << "CNode: Scene framebuffer is incomplete.\n";
 
+            if (colorTexture)
+            {
+                glDeleteTextures(1, &colorTexture);
+                colorTexture = 0;
+            }
+
+            if (depthBuffer)
+            {
+                glDeleteRenderbuffers(1, &depthBuffer);
+                depthBuffer = 0;
+            }
+
             framebufferWidth = 0;
             framebufferHeight = 0;
             return false;

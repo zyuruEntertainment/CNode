@@ -32,7 +32,7 @@ namespace CNode
             ) == GLFW_PRESS;
 
         if (!active &&
-            ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
+            rightDown &&
             viewportHovered)
         {
             active = true;

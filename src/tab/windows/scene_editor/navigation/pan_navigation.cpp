@@ -27,7 +27,7 @@ namespace CNode
         const bool shiftDown = io.KeyShift;
 
         if (!panning &&
-            ((ImGui::IsMouseClicked(panButton) &&
+            ((middleDown &&
                 shiftDown &&
                 viewportHovered) ||
                 controllerActive))
@@ -49,7 +49,7 @@ namespace CNode
 
         const bool panInputDown = controllerPanning
             ? controllerActive
-            : middleDown && shiftDown;
+            : (middleDown && shiftDown);
 
         if (!panInputDown)
         {

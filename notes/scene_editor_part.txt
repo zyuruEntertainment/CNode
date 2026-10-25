@@ -1,0 +1,117 @@
+﻿121:         }
+122: 
+123:         if (!state->renderer.IsInitialized() &&
+124:             !state->renderer.Initialize())
+125:         {
+126:             ImGui::TextUnformatted(
+127:                 "Failed to initialize the 3D scene renderer."
+128:             );
+129: 
+130:             ImGui::End();
+131:             return;
+132:         }
+133: 
+134:         const float displayWidth = available.x;
+135:         const float displayHeight = available.y;
+136: 
+137:         const ImGuiIO& io = ImGui::GetIO();
+138: 
+139:         const float scaleX =
+140:             std::max(io.DisplayFramebufferScale.x, 1.0f);
+141: 
+142:         const float scaleY =
+143:             std::max(io.DisplayFramebufferScale.y, 1.0f);
+144: 
+145:         const int renderWidth = std::max(
+146:             1,
+147:             static_cast<int>(
+148:                 std::lround(displayWidth * scaleX)
+149:                 )
+150:         );
+151: 
+152:         const int renderHeight = std::max(
+153:             1,
+154:             static_cast<int>(
+155:                 std::lround(displayHeight * scaleY)
+156:                 )
+157:         );
+158: 
+159:         state->renderer.Render(
+160:             state->camera,
+161:             renderWidth,
+162:             renderHeight
+163:         );
+164: 
+165:         const unsigned int texture =
+166:             state->renderer.GetTexture();
+167: 
+168:         if (texture != 0)
+169:         {
+170:             const ImVec2 viewportMin =
+171:                 ImGui::GetCursorScreenPos();
+172: 
+173:             ImGui::Image(
+174:                 (ImTextureID)(intptr_t)texture,
+175:                 ImVec2(displayWidth, displayHeight),
+176:                 ImVec2(0.0f, 1.0f),
+177:                 ImVec2(1.0f, 0.0f)
+178:             );
+179: 
+180:             const ImVec2 viewportMax(
+181:                 viewportMin.x + displayWidth,
+182:                 viewportMin.y + displayHeight
+183:             );
+184: 
+185:             state->orbitGizmo.Draw(
+186:                 state->camera,
+187:                 viewportMin,
+188:                 viewportMax
+189:             );
+190: 
+191:             const bool gizmoBusy =
+192:                 state->orbitGizmo.IsBusy();
+193: 
+194:             GLFWwindow* window =
+195:                 glfwGetCurrentContext();
+196: 
+197:             const bool panControllerActive =
+198:                 state->panViewController.Draw(
+199:                     window,
+200:                     viewportMin,
+201:                     viewportMax
+202:                 );
+203: 
+204:             const bool zoomControllerActive =
+205:                 state->zoomViewController.Draw(
+206:                     window,
+207:                     viewportMin,
+208:                     viewportMax
+209:                 );
+210: 
+211:             const bool viewportHovered =
+212:                 ImGui::IsMouseHoveringRect(
+213:                     viewportMin,
+214:                     viewportMax
+215:                 );
+216: 
+217:             if (zoomControllerActive)
+218:             {
+219:                 state->zoomNavigation.Update(
+220:                     state->camera,
+221:                     viewportHovered,
+222:                     true,
+223:                     state->zoomViewController.GetDragDeltaY()
+224:                 );
+225:             }
+226:             else if (!gizmoBusy)
+227:             {
+228:                 bool freeLookActive =
+229:                     state->freeLookNavigation.Update(
+230:                         state->camera,
+231:                         window,
+232:                         viewportHovered
+233:                     );
+234: 
+235:                 if (!freeLookActive)
+236:                 {
+237:                     const bool panActive =
