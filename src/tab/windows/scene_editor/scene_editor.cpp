@@ -1,4 +1,3 @@
-
 #include "tab/windows/scene_editor/scene_editor.h"
 #include "tab/windows/scene_editor/scene_camera.h"
 #include "tab/windows/scene_editor/scene_renderer.h"
@@ -45,9 +44,7 @@ namespace CNode
             std::unique_ptr<SceneEditorState>
         > sceneEditors;
 
-        SceneEditorState* GetSceneEditorState(
-            const char* title
-        )
+        SceneEditorState* GetSceneEditorState(const char* title)
         {
             if (!title || !*title)
                 return nullptr;
@@ -81,15 +78,30 @@ namespace CNode
         }
     }
 
-    void DrawSceneEditor(
-        const char* title,
-        bool* open
-    )
+    void DrawSceneEditor(const char* title, bool* open)
     {
         if (!title || !*title)
             return;
 
-        if (!ImGui::Begin(title, open))
+        SceneEditorState* state = GetSceneEditorState(title);
+
+        if (!state)
+        {
+            if (ImGui::Begin(title, open))
+                ImGui::TextUnformatted(
+                    "Failed to create the scene editor state."
+                );
+
+            ImGui::End();
+            return;
+        }
+
+        const ImGuiWindowFlags windowFlags =
+            state->boxSelection.IsSelecting()
+            ? ImGuiWindowFlags_NoMove
+            : ImGuiWindowFlags_None;
+
+        if (!ImGui::Begin(title, open, windowFlags))
         {
             ImGui::End();
 
@@ -99,24 +111,9 @@ namespace CNode
             return;
         }
 
-        SceneEditorState* state =
-            GetSceneEditorState(title);
+        const ImVec2 available = ImGui::GetContentRegionAvail();
 
-        if (!state)
-        {
-            ImGui::TextUnformatted(
-                "Failed to create the scene editor state."
-            );
-
-            ImGui::End();
-            return;
-        }
-
-        const ImVec2 available =
-            ImGui::GetContentRegionAvail();
-
-        if (available.x <= 1.0f ||
-            available.y <= 1.0f)
+        if (available.x <= 1.0f || available.y <= 1.0f)
         {
             ImGui::End();
             return;
@@ -164,8 +161,7 @@ namespace CNode
             renderHeight
         );
 
-        const unsigned int texture =
-            state->renderer.GetTexture();
+        const unsigned int texture = state->renderer.GetTexture();
 
         if (texture != 0)
         {
@@ -177,6 +173,13 @@ namespace CNode
                 viewportMin.y + displayHeight
             );
 
+            ImGui::SetNextItemAllowOverlap();
+
+            ImGui::InvisibleButton(
+                "##SceneViewportInput",
+                ImVec2(displayWidth, displayHeight)
+            );
+
             ImGui::GetWindowDrawList()->AddImage(
                 (ImTextureID)(intptr_t)texture,
                 viewportMin,
@@ -185,12 +188,16 @@ namespace CNode
                 ImVec2(1.0f, 0.0f)
             );
 
-            ImGui::SetCursorScreenPos(viewportMin);
+            GLFWwindow* window = glfwGetCurrentContext();
 
-            ImGui::InvisibleButton(
-                "##SceneViewportInput",
-                ImVec2(displayWidth, displayHeight)
-            );
+            const bool viewportHovered =
+                ImGui::IsWindowHovered(
+                    ImGuiHoveredFlags_AllowWhenBlockedByActiveItem
+                ) &&
+                ImGui::IsMouseHoveringRect(
+                    viewportMin,
+                    viewportMax
+                );
 
             state->orbitGizmo.Draw(
                 state->camera,
@@ -200,9 +207,6 @@ namespace CNode
 
             const bool gizmoBusy =
                 state->orbitGizmo.IsBusy();
-
-            GLFWwindow* window =
-                glfwGetCurrentContext();
 
             const bool panControllerActive =
                 state->panViewController.Draw(
@@ -214,16 +218,6 @@ namespace CNode
             const bool zoomControllerActive =
                 state->zoomViewController.Draw(
                     window,
-                    viewportMin,
-                    viewportMax
-                );
-
-            const bool sceneWindowHovered =
-                ImGui::IsWindowHovered();
-
-            const bool viewportHovered =
-                sceneWindowHovered &&
-                ImGui::IsMouseHoveringRect(
                     viewportMin,
                     viewportMax
                 );
@@ -267,7 +261,11 @@ namespace CNode
                             window,
                             viewportHovered
                         );
-                        orbitActive = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+
+                        orbitActive =
+                            ImGui::IsMouseDown(
+                                ImGuiMouseButton_Middle
+                            );
 
                         if (!ImGui::IsMouseDown(
                             ImGuiMouseButton_Left) &&
@@ -301,6 +299,9 @@ namespace CNode
         }
 
         ImGui::End();
+
+        if (open && !*open)
+            DestroySceneEditorState(title);
     }
 
     void ShutdownSceneEditor()
