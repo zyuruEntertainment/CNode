@@ -172,21 +172,24 @@ namespace CNode
             const ImVec2 viewportMin =
                 ImGui::GetCursorScreenPos();
 
-            ImGui::Image(
+            const ImVec2 viewportMax(
+                viewportMin.x + displayWidth,
+                viewportMin.y + displayHeight
+            );
+
+            ImGui::GetWindowDrawList()->AddImage(
                 (ImTextureID)(intptr_t)texture,
-                ImVec2(displayWidth, displayHeight),
+                viewportMin,
+                viewportMax,
                 ImVec2(0.0f, 1.0f),
                 ImVec2(1.0f, 0.0f)
             );
 
+            ImGui::SetCursorScreenPos(viewportMin);
+
             ImGui::InvisibleButton(
                 "##SceneViewportInput",
                 ImVec2(displayWidth, displayHeight)
-            );
-
-            const ImVec2 viewportMax(
-                viewportMin.x + displayWidth,
-                viewportMin.y + displayHeight
             );
 
             state->orbitGizmo.Draw(
