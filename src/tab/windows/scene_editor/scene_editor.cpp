@@ -179,6 +179,11 @@ namespace CNode
                 ImVec2(1.0f, 0.0f)
             );
 
+            ImGui::InvisibleButton(
+                "##SceneViewportInput",
+                ImVec2(displayWidth, displayHeight)
+            );
+
             const ImVec2 viewportMax(
                 viewportMin.x + displayWidth,
                 viewportMin.y + displayHeight
@@ -210,25 +215,15 @@ namespace CNode
                     viewportMax
                 );
 
-            bool viewportHovered =
+            const bool sceneWindowHovered =
+                ImGui::IsWindowHovered();
+
+            const bool viewportHovered =
+                sceneWindowHovered &&
                 ImGui::IsMouseHoveringRect(
                     viewportMin,
                     viewportMax
                 );
-
-            if (!viewportHovered)
-            {
-                double mx = 0.0;
-                double my = 0.0;
-                glfwGetCursorPos(window, &mx, &my);
-
-                const ImVec2 mousePos(static_cast<float>(mx), static_cast<float>(my));
-                if (mousePos.x >= viewportMin.x && mousePos.x <= viewportMax.x &&
-                    mousePos.y >= viewportMin.y && mousePos.y <= viewportMax.y)
-                {
-                    viewportHovered = true;
-                }
-            }
 
             bool freeLookActive = false;
             bool panActive = false;

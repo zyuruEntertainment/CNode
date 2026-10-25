@@ -25,20 +25,20 @@ namespace CNode
         bool orbitActive
     )
     {
-        (void)window;
-        (void)orbitGizmoActive;
-        (void)panControllerActive;
-        (void)zoomControllerActive;
-        (void)freeLookActive;
-        (void)panActive;
-        (void)orbitActive;
-
         const ImGuiIO& io = ImGui::GetIO();
 
         if (!selecting)
         {
-            if (gizmoBusy)
+            if (gizmoBusy ||
+                orbitGizmoActive ||
+                panControllerActive ||
+                zoomControllerActive ||
+                freeLookActive ||
+                panActive ||
+                orbitActive)
+            {
                 return;
+            }
 
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                 viewportHovered &&
