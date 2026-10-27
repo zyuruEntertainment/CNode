@@ -1,6 +1,7 @@
 #include "tab/windows/scene_editor/scene_renderer.h"
 #include "tab/windows/scene_editor/scene_grid.h"
 #include "tab/windows/scene_editor/scene_axis.h"
+#include "tab/windows/project_setting/project_setting.h"
 
 #define NOMINMAX
 #include <glad/glad.h>
@@ -471,7 +472,15 @@ namespace CNode
         glDisable(GL_BLEND);
         glDisable(GL_CULL_FACE);
 
-        glClearColor(0.075f, 0.085f, 0.10f, 1.0f);
+        const ProjectSettings& projectSettings =
+            GetProjectSettings();
+
+        glClearColor(
+            projectSettings.backgroundColor[0],
+            projectSettings.backgroundColor[1],
+            projectSettings.backgroundColor[2],
+            1.0f
+        );
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         float viewProjection[16] = {};
@@ -482,24 +491,30 @@ namespace CNode
             viewProjection
         );
 
-        if (gridVertexArray == 0)
+        if (GetProjectSettings().showGrid)
         {
-            if (!CreateGrid(camera))
-                return;
-        }
-        else
-        {
-            UpdateGrid(camera);
+            if (gridVertexArray == 0)
+            {
+                if (!CreateGrid(camera))
+                    return;
+            }
+            else
+            {
+                UpdateGrid(camera);
+            }
         }
 
-        if (axisVertexArray == 0)
+        if (GetProjectSettings().showAxis)
         {
-            if (!CreateAxis(camera))
-                return;
-        }
-        else
-        {
-            UpdateAxis(camera);
+            if (axisVertexArray == 0)
+            {
+                if (!CreateAxis(camera))
+                    return;
+            }
+            else
+            {
+                UpdateAxis(camera);
+            }
         }
 
         glUseProgram(shaderProgram);
@@ -516,11 +531,17 @@ namespace CNode
             viewProjection
         );
 
-        glBindVertexArray(gridVertexArray);
-        glDrawArrays(GL_LINES, 0, gridVertexCount);
+        if (projectSettings.showGrid && gridVertexArray != 0)
+        {
+            glBindVertexArray(gridVertexArray);
+            glDrawArrays(GL_LINES, 0, gridVertexCount);
+        }
 
-        glBindVertexArray(axisVertexArray);
-        glDrawArrays(GL_LINES, 0, axisVertexCount);
+        if (projectSettings.showAxis && axisVertexArray != 0)
+        {
+            glBindVertexArray(axisVertexArray);
+            glDrawArrays(GL_LINES, 0, axisVertexCount);
+        }
 
         glBindVertexArray(0);
         glUseProgram(0);

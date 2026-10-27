@@ -1,4 +1,5 @@
 #include "tab/windows/scene_editor/scene_grid.h"
+#include "tab/windows/project_setting/project_setting.h"
 
 #include <algorithm>
 #include <cmath>
@@ -49,7 +50,7 @@ namespace CNode
         else if (distance > 20.0f)
             spacing = 2.0f;
 
-        const float radius = std::clamp(distance * 1.5f, 30.0f, 150.0f);
+        const float radius = std::max(30.0f, GetProjectSettings().gridRenderDistance);
 
         const float originX =
             std::floor(cameraX / spacing) * spacing;
