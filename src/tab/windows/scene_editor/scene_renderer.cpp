@@ -54,9 +54,7 @@ namespace CNode
         if (initialized)
             return true;
 
-        if (!CreateShader() ||
-            !CreateGrid() ||
-            !CreateAxis())
+        if (!CreateShader())
         {
             Shutdown();
             return false;
@@ -161,7 +159,8 @@ namespace CNode
         const void* data,
         int count,
         unsigned int& vertexArray,
-        unsigned int& vertexBuffer)
+        unsigned int& vertexBuffer,
+        unsigned int usage)
     {
         if (!data || count <= 0)
             return false;
@@ -182,7 +181,7 @@ namespace CNode
                 sizeof(SceneLineVertex)
                 ),
             data,
-            GL_STATIC_DRAW
+            usage
         );
 
         glEnableVertexAttribArray(0);
@@ -213,9 +212,9 @@ namespace CNode
         return true;
     }
 
-    bool SceneRenderer::CreateGrid()
+    bool SceneRenderer::CreateGrid(const SceneCamera& camera)
     {
-        const auto vertices = BuildSceneGridVertices();
+        const auto vertices = BuildSceneGridVertices(camera);
 
         gridVertexCount = static_cast<int>(vertices.size());
 
@@ -223,13 +222,36 @@ namespace CNode
             vertices.data(),
             gridVertexCount,
             gridVertexArray,
-            gridVertexBuffer
+            gridVertexBuffer,
+            0x88E8
         );
     }
 
-    bool SceneRenderer::CreateAxis()
+    bool SceneRenderer::UpdateGrid(const SceneCamera& camera)
     {
-        const auto vertices = BuildSceneAxisVertices();
+        const auto vertices = BuildSceneGridVertices(camera);
+
+        if (vertices.empty())
+            return false;
+
+        glBindBuffer(GL_ARRAY_BUFFER, gridVertexBuffer);
+
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(
+                vertices.size() * sizeof(SceneLineVertex)
+                ),
+            vertices.data(),
+            0x88E8
+        );
+
+        gridVertexCount = static_cast<int>(vertices.size());
+        return true;
+    }
+
+    bool SceneRenderer::CreateAxis(const SceneCamera& camera)
+    {
+        const auto vertices = BuildSceneAxisVertices(camera);
 
         axisVertexCount = static_cast<int>(vertices.size());
 
@@ -237,8 +259,31 @@ namespace CNode
             vertices.data(),
             axisVertexCount,
             axisVertexArray,
-            axisVertexBuffer
+            axisVertexBuffer,
+            0x88E8
         );
+    }
+
+    bool SceneRenderer::UpdateAxis(const SceneCamera& camera)
+    {
+        const auto vertices = BuildSceneAxisVertices(camera);
+
+        if (vertices.empty())
+            return false;
+
+        glBindBuffer(GL_ARRAY_BUFFER, axisVertexBuffer);
+
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(
+                vertices.size() * sizeof(SceneLineVertex)
+                ),
+            vertices.data(),
+            0x88E8
+        );
+
+        axisVertexCount = static_cast<int>(vertices.size());
+        return true;
     }
 
     bool SceneRenderer::CreateFramebuffer(int width, int height)
@@ -436,6 +481,26 @@ namespace CNode
             static_cast<float>(height),
             viewProjection
         );
+
+        if (gridVertexArray == 0)
+        {
+            if (!CreateGrid(camera))
+                return;
+        }
+        else
+        {
+            UpdateGrid(camera);
+        }
+
+        if (axisVertexArray == 0)
+        {
+            if (!CreateAxis(camera))
+                return;
+        }
+        else
+        {
+            UpdateAxis(camera);
+        }
 
         glUseProgram(shaderProgram);
 

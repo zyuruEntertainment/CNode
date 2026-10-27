@@ -22,13 +22,16 @@ namespace CNode
 
     private:
         bool CreateShader();
-        bool CreateGrid();
-        bool CreateAxis();
+        bool CreateGrid(const SceneCamera& camera);
+        bool CreateAxis(const SceneCamera& camera);
+        bool UpdateGrid(const SceneCamera& camera);
+        bool UpdateAxis(const SceneCamera& camera);
         bool CreateLineBuffer(
             const void* data,
             int vertexCount,
             unsigned int& vertexArray,
-            unsigned int& vertexBuffer
+            unsigned int& vertexBuffer,
+            unsigned int usage = 0x88E8
         );
         bool CreateFramebuffer(int width, int height);
 
