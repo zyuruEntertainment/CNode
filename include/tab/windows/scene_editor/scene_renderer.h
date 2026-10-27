@@ -22,9 +22,17 @@ namespace CNode
 
     private:
         bool CreateShader();
-        bool CreateGrid(const SceneCamera& camera);
+        bool CreateGrid(
+            const SceneCamera& camera,
+            int width,
+            int height
+        );
         bool CreateAxis(const SceneCamera& camera);
-        bool UpdateGrid(const SceneCamera& camera);
+        bool UpdateGrid(
+            const SceneCamera& camera,
+            int width,
+            int height
+        );
         bool UpdateAxis(const SceneCamera& camera);
         bool CreateLineBuffer(
             const void* data,
@@ -44,6 +52,10 @@ namespace CNode
         unsigned int gridVertexArray = 0;
         unsigned int gridVertexBuffer = 0;
         int gridVertexCount = 0;
+
+        unsigned int gridMajorVertexArray = 0;
+        unsigned int gridMajorVertexBuffer = 0;
+        int gridMajorVertexCount = 0;
 
         unsigned int axisVertexArray = 0;
         unsigned int axisVertexBuffer = 0;

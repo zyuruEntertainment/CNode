@@ -43,6 +43,14 @@ namespace CNode
                 2000.0f,
                 "%.0f"
             );
+
+            ImGui::SliderFloat(
+                "Grid Opacity",
+                &settings.gridOpacity,
+                0.0f,
+                1.0f,
+                "%.2f"
+            );
         }
 
         ImGui::End();

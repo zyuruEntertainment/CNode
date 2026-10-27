@@ -213,40 +213,79 @@ namespace CNode
         return true;
     }
 
-    bool SceneRenderer::CreateGrid(const SceneCamera& camera)
+    bool SceneRenderer::CreateGrid(
+        const SceneCamera& camera,
+        int width,
+        int height)
     {
-        const auto vertices = BuildSceneGridVertices(camera);
+        const auto vertices = BuildSceneGridVertices(
+            camera, width, height
+        );
 
-        gridVertexCount = static_cast<int>(vertices.size());
+        gridVertexCount = static_cast<int>(vertices.minor.size());
+        gridMajorVertexCount =
+            static_cast<int>(vertices.major.size());
 
-        return CreateLineBuffer(
-            vertices.data(),
+        const bool minorOk = CreateLineBuffer(
+            vertices.minor.data(),
             gridVertexCount,
             gridVertexArray,
             gridVertexBuffer,
             0x88E8
         );
-    }
 
-    bool SceneRenderer::UpdateGrid(const SceneCamera& camera)
-    {
-        const auto vertices = BuildSceneGridVertices(camera);
-
-        if (vertices.empty())
-            return false;
-
-        glBindBuffer(GL_ARRAY_BUFFER, gridVertexBuffer);
-
-        glBufferData(
-            GL_ARRAY_BUFFER,
-            static_cast<GLsizeiptr>(
-                vertices.size() * sizeof(SceneLineVertex)
-                ),
-            vertices.data(),
+        const bool majorOk = CreateLineBuffer(
+            vertices.major.data(),
+            gridMajorVertexCount,
+            gridMajorVertexArray,
+            gridMajorVertexBuffer,
             0x88E8
         );
 
-        gridVertexCount = static_cast<int>(vertices.size());
+        return minorOk && majorOk;
+    }
+
+    bool SceneRenderer::UpdateGrid(
+        const SceneCamera& camera,
+        int width,
+        int height)
+    {
+        const auto vertices = BuildSceneGridVertices(
+            camera, width, height
+        );
+
+        gridVertexCount = static_cast<int>(vertices.minor.size());
+        gridMajorVertexCount =
+            static_cast<int>(vertices.major.size());
+
+        if (gridVertexCount > 0)
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, gridVertexBuffer);
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                static_cast<GLsizeiptr>(
+                    vertices.minor.size() *
+                    sizeof(SceneLineVertex)
+                ),
+                vertices.minor.data(),
+                0x88E8
+            );
+        }
+
+        if (gridMajorVertexCount > 0)
+        {
+            glBindBuffer(GL_ARRAY_BUFFER, gridMajorVertexBuffer);
+            glBufferData(
+                GL_ARRAY_BUFFER,
+                static_cast<GLsizeiptr>(
+                    vertices.major.size() *
+                    sizeof(SceneLineVertex)
+                ),
+                vertices.major.data(),
+                0x88E8
+            );
+        }
+
         return true;
     }
 
@@ -495,12 +534,12 @@ namespace CNode
         {
             if (gridVertexArray == 0)
             {
-                if (!CreateGrid(camera))
+                if (!CreateGrid(camera, width, height))
                     return;
             }
             else
             {
-                UpdateGrid(camera);
+                UpdateGrid(camera, width, height);
             }
         }
 
@@ -531,10 +570,29 @@ namespace CNode
             viewProjection
         );
 
-        if (projectSettings.showGrid && gridVertexArray != 0)
+        if (projectSettings.showGrid)
         {
-            glBindVertexArray(gridVertexArray);
-            glDrawArrays(GL_LINES, 0, gridVertexCount);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_LINE_SMOOTH);
+            glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+
+            if (gridVertexCount > 0 && gridVertexArray != 0)
+            {
+                glLineWidth(1.0f);
+                glBindVertexArray(gridVertexArray);
+                glDrawArrays(GL_LINES, 0, gridVertexCount);
+            }
+
+            if (gridMajorVertexCount > 0 && gridMajorVertexArray != 0)
+            {
+                glLineWidth(2.0f);
+                glBindVertexArray(gridMajorVertexArray);
+                glDrawArrays(GL_LINES, 0, gridMajorVertexCount);
+            }
+
+            glDisable(GL_LINE_SMOOTH);
+            glDisable(GL_BLEND);
         }
 
         if (projectSettings.showAxis && axisVertexArray != 0)
@@ -577,6 +635,12 @@ namespace CNode
         if (gridVertexArray)
             glDeleteVertexArrays(1, &gridVertexArray);
 
+        if (gridMajorVertexBuffer)
+            glDeleteBuffers(1, &gridMajorVertexBuffer);
+
+        if (gridMajorVertexArray)
+            glDeleteVertexArrays(1, &gridMajorVertexArray);
+
         if (axisVertexBuffer)
             glDeleteBuffers(1, &axisVertexBuffer);
 
@@ -603,6 +667,10 @@ namespace CNode
         gridVertexArray = 0;
         gridVertexBuffer = 0;
         gridVertexCount = 0;
+
+        gridMajorVertexArray = 0;
+        gridMajorVertexBuffer = 0;
+        gridMajorVertexCount = 0;
 
         axisVertexArray = 0;
         axisVertexBuffer = 0;

@@ -12,5 +12,15 @@ namespace CNode
         float color[3];
     };
 
-    std::vector<SceneLineVertex> BuildSceneGridVertices(const SceneCamera& camera);
+    struct SceneGridVertices
+    {
+        std::vector<SceneLineVertex> minor;
+        std::vector<SceneLineVertex> major;
+    };
+
+    SceneGridVertices BuildSceneGridVertices(
+        const SceneCamera& camera,
+        int viewportWidth,
+        int viewportHeight
+    );
 }
