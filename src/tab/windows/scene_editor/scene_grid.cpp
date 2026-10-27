@@ -1,5 +1,5 @@
 #include "tab/windows/scene_editor/scene_grid.h"
-#include "tab/windows/project_setting/project_setting.h"
+#include "tab/windows/project_setting/project_setting_data.h"
 
 #include <algorithm>
 #include <cmath>
@@ -30,7 +30,7 @@ namespace CNode
                 color[i] =
                     background[i] +
                     (gridColor - background[i]) *
-                    opacity * fade;
+                    opacity * std::clamp(fade, 0.0f, 1.0f);
             }
         }
 
@@ -86,19 +86,41 @@ namespace CNode
             (std::tan(fovRadians * 0.5f) *
              std::max(distanceToTarget, 1.0f));
 
-        const float desiredPixels = 12.0f;
+        const float desiredPixels = 24.0f;
         float rawSpacing = desiredPixels /
             std::max(pixelsPerUnit, 0.001f);
 
         float spacing = 1.0f;
 
-        while (spacing * 2.0f <= rawSpacing &&
+        while (spacing < rawSpacing &&
                spacing * 2.0f <= 100.0f)
         {
             spacing *= 2.0f;
         }
 
         spacing = std::clamp(spacing, 1.0f, 100.0f);
+
+        float viewDirX = targetX - cameraX;
+        float viewDirZ = targetZ - cameraZ;
+        const float viewDirLength = std::sqrt(
+            viewDirX * viewDirX + viewDirZ * viewDirZ
+        );
+
+        if (viewDirLength > 0.0001f)
+        {
+            viewDirX /= viewDirLength;
+            viewDirZ /= viewDirLength;
+        }
+        else
+        {
+            viewDirX = 0.0f;
+            viewDirZ = 1.0f;
+        }
+
+        // Reduce the family of lines that becomes visually stacked
+        // when the camera looks close to that axis.
+        const float xFamilyScale = std::abs(viewDirZ);
+        const float zFamilyScale = std::abs(viewDirX);
 
         const ProjectSettings& projectSettings =
             GetProjectSettings();
@@ -109,24 +131,22 @@ namespace CNode
             projectSettings.gridRenderDistance
         );
 
-        const float originX =
-            std::floor(cameraX / spacing) * spacing;
+        const int minI = static_cast<int>(
+            std::floor((cameraX - radius) / spacing)
+        );
 
-        const float originZ =
-            std::floor(cameraZ / spacing) * spacing;
-
-        const int stepCount =
-            static_cast<int>(radius / spacing);
+        const int maxI = static_cast<int>(
+            std::ceil((cameraX + radius) / spacing)
+        );
 
         constexpr float minorGridColor = 0.22f;
         constexpr float majorGridColor = 0.42f;
 
-        for (int i = -stepCount; i <= stepCount; ++i)
+        for (int i = minI; i <= maxI; ++i)
         {
-            const float x = originX +
-                static_cast<float>(i) * spacing;
+            const float x = static_cast<float>(i) * spacing;
 
-            const float deltaX = x - originX;
+            const float deltaX = x - cameraX;
 
             if (std::fabs(deltaX) > radius)
                 continue;
@@ -141,42 +161,110 @@ namespace CNode
                 )
             );
 
-            const float zStart = originZ - halfExtent;
-            const float zEnd = originZ + halfExtent;
-
-            const float centerDistance = std::fabs(deltaX);
-            const float fade = SmoothFade(
-                centerDistance, radius
+            const float zStart = cameraZ - halfExtent;
+            const float zEnd = cameraZ + halfExtent;
+            const float closestZ = std::clamp(
+                cameraZ, zStart, zEnd
             );
 
             const bool major = (i % 10 == 0);
-
-            float color[3] = {};
-            BlendColor(
-                fade,
-                opacity,
-                projectSettings.backgroundColor,
-                major ? majorGridColor : minorGridColor,
-                color
-            );
+            const float gridColor =
+                major ? majorGridColor : minorGridColor;
 
             std::vector<SceneLineVertex>& target =
                 major ? result.major : result.minor;
 
-            AddGridLine(
-                target,
-                x, 0.0f, zStart,
-                x, 0.0f, zEnd,
-                color
+            const float fadeAtClosest =
+                SmoothFade(std::fabs(deltaX), radius) *
+                xFamilyScale;
+
+            float colorAtClosest[3] = {};
+            BlendColor(
+                fadeAtClosest,
+                opacity,
+                projectSettings.backgroundColor,
+                gridColor,
+                colorAtClosest
             );
+
+            if (closestZ > zStart + 0.0001f)
+            {
+                const float distanceAtStart = std::sqrt(
+                    deltaX * deltaX +
+                    (zStart - cameraZ) * (zStart - cameraZ)
+                );
+
+                const float fadeAtStart =
+                    SmoothFade(distanceAtStart, radius) *
+                    xFamilyScale;
+
+                float colorAtStart[3] = {};
+                BlendColor(
+                    fadeAtStart,
+                    opacity,
+                    projectSettings.backgroundColor,
+                    gridColor,
+                    colorAtStart
+                );
+
+                AddGridLine(
+                    target,
+                    x, 0.0f, zStart,
+                    x, 0.0f, closestZ,
+                    colorAtStart
+                );
+
+                target.back().color[0] = colorAtClosest[0];
+                target.back().color[1] = colorAtClosest[1];
+                target.back().color[2] = colorAtClosest[2];
+            }
+
+            if (zEnd > closestZ + 0.0001f)
+            {
+                const float distanceAtEnd = std::sqrt(
+                    deltaX * deltaX +
+                    (zEnd - cameraZ) * (zEnd - cameraZ)
+                );
+
+                const float fadeAtEnd =
+                    SmoothFade(distanceAtEnd, radius) *
+                    xFamilyScale;
+
+                float colorAtEnd[3] = {};
+                BlendColor(
+                    fadeAtEnd,
+                    opacity,
+                    projectSettings.backgroundColor,
+                    gridColor,
+                    colorAtEnd
+                );
+
+                AddGridLine(
+                    target,
+                    x, 0.0f, closestZ,
+                    x, 0.0f, zEnd,
+                    colorAtClosest
+                );
+
+                target.back().color[0] = colorAtEnd[0];
+                target.back().color[1] = colorAtEnd[1];
+                target.back().color[2] = colorAtEnd[2];
+            }
         }
 
-        for (int i = -stepCount; i <= stepCount; ++i)
-        {
-            const float z = originZ +
-                static_cast<float>(i) * spacing;
+        const int minJ = static_cast<int>(
+            std::floor((cameraZ - radius) / spacing)
+        );
 
-            const float deltaZ = z - originZ;
+        const int maxJ = static_cast<int>(
+            std::ceil((cameraZ + radius) / spacing)
+        );
+
+        for (int j = minJ; j <= maxJ; ++j)
+        {
+            const float z = static_cast<float>(j) * spacing;
+
+            const float deltaZ = z - cameraZ;
 
             if (std::fabs(deltaZ) > radius)
                 continue;
@@ -191,34 +279,95 @@ namespace CNode
                 )
             );
 
-            const float xStart = originX - halfExtent;
-            const float xEnd = originX + halfExtent;
-
-            const float centerDistance = std::fabs(deltaZ);
-            const float fade = SmoothFade(
-                centerDistance, radius
+            const float xStart = cameraX - halfExtent;
+            const float xEnd = cameraX + halfExtent;
+            const float closestX = std::clamp(
+                cameraX, xStart, xEnd
             );
 
-            const bool major = (i % 10 == 0);
-
-            float color[3] = {};
-            BlendColor(
-                fade,
-                opacity,
-                projectSettings.backgroundColor,
-                major ? majorGridColor : minorGridColor,
-                color
-            );
+            const bool major = (j % 10 == 0);
+            const float gridColor =
+                major ? majorGridColor : minorGridColor;
 
             std::vector<SceneLineVertex>& target =
                 major ? result.major : result.minor;
 
-            AddGridLine(
-                target,
-                xStart, 0.0f, z,
-                xEnd, 0.0f, z,
-                color
+            const float fadeAtClosest =
+                SmoothFade(std::fabs(deltaZ), radius) *
+                zFamilyScale;
+
+            float colorAtClosest[3] = {};
+            BlendColor(
+                fadeAtClosest,
+                opacity,
+                projectSettings.backgroundColor,
+                gridColor,
+                colorAtClosest
             );
+
+            if (closestX > xStart + 0.0001f)
+            {
+                const float distanceAtStart = std::sqrt(
+                    (xStart - cameraX) * (xStart - cameraX) +
+                    deltaZ * deltaZ
+                );
+
+                const float fadeAtStart =
+                    SmoothFade(distanceAtStart, radius) *
+                    zFamilyScale;
+
+                float colorAtStart[3] = {};
+                BlendColor(
+                    fadeAtStart,
+                    opacity,
+                    projectSettings.backgroundColor,
+                    gridColor,
+                    colorAtStart
+                );
+
+                AddGridLine(
+                    target,
+                    xStart, 0.0f, z,
+                    closestX, 0.0f, z,
+                    colorAtStart
+                );
+
+                target.back().color[0] = colorAtClosest[0];
+                target.back().color[1] = colorAtClosest[1];
+                target.back().color[2] = colorAtClosest[2];
+            }
+
+            if (xEnd > closestX + 0.0001f)
+            {
+                const float distanceAtEnd = std::sqrt(
+                    (xEnd - cameraX) * (xEnd - cameraX) +
+                    deltaZ * deltaZ
+                );
+
+                const float fadeAtEnd =
+                    SmoothFade(distanceAtEnd, radius) *
+                    zFamilyScale;
+
+                float colorAtEnd[3] = {};
+                BlendColor(
+                    fadeAtEnd,
+                    opacity,
+                    projectSettings.backgroundColor,
+                    gridColor,
+                    colorAtEnd
+                );
+
+                AddGridLine(
+                    target,
+                    closestX, 0.0f, z,
+                    xEnd, 0.0f, z,
+                    colorAtClosest
+                );
+
+                target.back().color[0] = colorAtEnd[0];
+                target.back().color[1] = colorAtEnd[1];
+                target.back().color[2] = colorAtEnd[2];
+            }
         }
 
         return result;

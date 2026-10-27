@@ -1,7 +1,7 @@
 #include "tab/windows/scene_editor/scene_renderer.h"
 #include "tab/windows/scene_editor/scene_grid.h"
 #include "tab/windows/scene_editor/scene_axis.h"
-#include "tab/windows/project_setting/project_setting.h"
+#include "tab/windows/project_setting/project_setting_data.h"
 
 #define NOMINMAX
 #include <glad/glad.h>

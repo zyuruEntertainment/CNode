@@ -204,6 +204,11 @@ add_executable(CNode
     src/tab/windows/node_graph/node_graph.cpp
     src/tab/windows/object_list/object_list.cpp
     src/tab/windows/project_setting/project_setting.cpp
+    src/tab/windows/project_setting/project_setting_data.cpp
+    src/tab/windows/project_setting/environment_settings.cpp
+    src/tab/windows/project_setting/viewport_settings.cpp
+    src/tab/windows/project_setting/grid_settings.cpp
+    src/tab/windows/project_setting/axis_settings.cpp
 
     src/tab/windows/window_id.cpp
     src/tab/windows/window_registry.cpp
