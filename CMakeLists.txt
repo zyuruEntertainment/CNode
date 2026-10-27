@@ -191,6 +191,15 @@ message(STATUS
 add_executable(CNode
     main.cpp
 
+    src/components/transform/transform_component.cpp
+    src/components/mesh/mesh_component.cpp
+    src/components/renderer/renderer_component.cpp
+
+    src/nodes/node_registry.cpp
+    src/nodes/templates/cube_node.cpp
+
+    src/scene/scene.cpp
+
     src/scene/window/editor.cpp
     src/scene/window/logo.cpp
     src/scene/window/font.cpp

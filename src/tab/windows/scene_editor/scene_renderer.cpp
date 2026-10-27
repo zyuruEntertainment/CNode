@@ -2,11 +2,14 @@
 #include "tab/windows/scene_editor/scene_grid.h"
 #include "tab/windows/scene_editor/scene_axis.h"
 #include "tab/windows/project_setting/project_setting_data.h"
+#include "scene/scene.h"
 
 #define NOMINMAX
 #include <glad/glad.h>
 
 #include <algorithm>
+#include <cmath>
+#include <iostream>
 #include <cstddef>
 #include <iostream>
 #include <vector>
@@ -55,7 +58,9 @@ namespace CNode
         if (initialized)
             return true;
 
-        if (!CreateShader())
+        if (!CreateShader() ||
+            !CreateCubeShader() ||
+            !CreateCube())
         {
             Shutdown();
             return false;
@@ -208,6 +213,129 @@ namespace CNode
         );
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+
+        return true;
+    }
+
+    bool SceneRenderer::CreateCubeShader()
+    {
+        const char* vertexSource = R"(
+            #version 330 core
+            layout (location = 0) in vec3 aPosition;
+            uniform mat4 uModel;
+            uniform mat4 uViewProjection;
+            void main()
+            {
+                gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
+            }
+        )";
+
+        const char* fragmentSource = R"(
+            #version 330 core
+            uniform vec3 uColor;
+            out vec4 FragColor;
+            void main()
+            {
+                FragColor = vec4(uColor, 1.0);
+            }
+        )";
+
+        const unsigned int vertexShader =
+            CompileShader(GL_VERTEX_SHADER, vertexSource);
+
+        if (!vertexShader)
+            return false;
+
+        const unsigned int fragmentShader =
+            CompileShader(GL_FRAGMENT_SHADER, fragmentSource);
+
+        if (!fragmentShader)
+        {
+            glDeleteShader(vertexShader);
+            return false;
+        }
+
+        cubeShaderProgram = glCreateProgram();
+        glAttachShader(cubeShaderProgram, vertexShader);
+        glAttachShader(cubeShaderProgram, fragmentShader);
+        glLinkProgram(cubeShaderProgram);
+
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+
+        int success = 0;
+        glGetProgramiv(cubeShaderProgram, GL_LINK_STATUS, &success);
+
+        if (!success)
+        {
+            glDeleteProgram(cubeShaderProgram);
+            cubeShaderProgram = 0;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool SceneRenderer::CreateCube()
+    {
+        const float vertices[] = {
+            -0.5f, -0.5f, -0.5f,
+             0.5f, -0.5f, -0.5f,
+             0.5f,  0.5f, -0.5f,
+            -0.5f,  0.5f, -0.5f,
+            -0.5f, -0.5f,  0.5f,
+             0.5f, -0.5f,  0.5f,
+             0.5f,  0.5f,  0.5f,
+            -0.5f,  0.5f,  0.5f
+        };
+
+        const unsigned int indices[] = {
+            0, 1, 2, 2, 3, 0,
+            4, 5, 6, 6, 7, 4,
+            0, 1, 5, 5, 4, 0,
+            3, 2, 6, 6, 7, 3,
+            0, 3, 7, 7, 4, 0,
+            1, 2, 6, 6, 5, 1
+        };
+
+        cubeIndexCount = 36;
+
+        glGenVertexArrays(1, &cubeVertexArray);
+        glGenBuffers(1, &cubeVertexBuffer);
+        glGenBuffers(1, &cubeIndexBuffer);
+
+        if (!cubeVertexArray || !cubeVertexBuffer || !cubeIndexBuffer)
+            return false;
+
+        glBindVertexArray(cubeVertexArray);
+
+        glBindBuffer(GL_ARRAY_BUFFER, cubeVertexBuffer);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            sizeof(vertices),
+            vertices,
+            GL_STATIC_DRAW
+        );
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeIndexBuffer);
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            sizeof(indices),
+            indices,
+            GL_STATIC_DRAW
+        );
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(
+            0,
+            3,
+            GL_FLOAT,
+            GL_FALSE,
+            3 * sizeof(float),
+            reinterpret_cast<void*>(0)
+        );
+
         glBindVertexArray(0);
 
         return true;
@@ -601,8 +729,124 @@ namespace CNode
             glDrawArrays(GL_LINES, 0, axisVertexCount);
         }
 
-        glBindVertexArray(0);
+        glUseProgram(cubeShaderProgram);
+
+        const int modelLocation = glGetUniformLocation(
+            cubeShaderProgram,
+            "uModel"
+        );
+
+        const int cubeMatrixLocation = glGetUniformLocation(
+            cubeShaderProgram,
+            "uViewProjection"
+        );
+
+        const int colorLocation = glGetUniformLocation(
+            cubeShaderProgram,
+            "uColor"
+        );
+
+        glUniformMatrix4fv(
+            cubeMatrixLocation,
+            1,
+            GL_FALSE,
+            viewProjection
+        );
+
+        const Scene& scene = GetScene();
+
+        for (const SceneObject& object : scene.objects)
+        {
+            if (!object.renderer.enabled)
+                continue;
+
+            const float px = object.transform.position.x;
+            const float py = object.transform.position.y;
+            const float pz = object.transform.position.z;
+
+            const float rx = object.transform.rotation.x * 3.14159265f / 180.0f;
+            const float ry = object.transform.rotation.y * 3.14159265f / 180.0f;
+            const float rz = object.transform.rotation.z * 3.14159265f / 180.0f;
+
+            const float sx = object.transform.scale.x;
+            const float sy = object.transform.scale.y;
+            const float sz = object.transform.scale.z;
+
+            float model[16] = {
+                1,0,0,0,
+                0,1,0,0,
+                0,0,1,0,
+                0,0,0,1
+            };
+
+            float rotX[16], rotY[16], rotZ[16], scale[16], trans[16], temp[16];
+
+            auto identity = [](float* m) {
+                for (int i = 0; i < 16; ++i) m[i] = 0.0f;
+                m[0] = m[5] = m[10] = m[15] = 1.0f;
+            };
+
+            auto multiply = [](const float* a, const float* b, float* out) {
+                float r[16] = {};
+                for (int c = 0; c < 4; ++c)
+                    for (int rrow = 0; rrow < 4; ++rrow)
+                        for (int k = 0; k < 4; ++k)
+                            r[c * 4 + rrow] += a[k * 4 + rrow] * b[c * 4 + k];
+                for (int i = 0; i < 16; ++i) out[i] = r[i];
+            };
+
+            identity(rotX);
+            rotX[5] = std::cos(rx);
+            rotX[6] = std::sin(rx);
+            rotX[9] = -std::sin(rx);
+            rotX[10] = std::cos(rx);
+
+            identity(rotY);
+            rotY[0] = std::cos(ry);
+            rotY[2] = -std::sin(ry);
+            rotY[8] = std::sin(ry);
+            rotY[10] = std::cos(ry);
+
+            identity(rotZ);
+            rotZ[0] = std::cos(rz);
+            rotZ[1] = std::sin(rz);
+            rotZ[4] = -std::sin(rz);
+            rotZ[5] = std::cos(rz);
+
+            identity(scale);
+            scale[0] = sx;
+            scale[5] = sy;
+            scale[10] = sz;
+
+            identity(trans);
+            trans[12] = px;
+            trans[13] = py;
+            trans[14] = pz;
+
+            multiply(rotZ, scale, temp);
+            multiply(rotY, temp, temp);
+            multiply(rotX, temp, temp);
+            multiply(trans, temp, model);
+
+            (void)model;
+
+            glUniformMatrix4fv(modelLocation, 1, GL_FALSE, model);
+            glUniform3f(
+                colorLocation,
+                object.renderer.color[0],
+                object.renderer.color[1],
+                object.renderer.color[2]
+            );
+
+            glBindVertexArray(cubeVertexArray);
+            glDrawElements(GL_TRIANGLES, cubeIndexCount, GL_UNSIGNED_INT, nullptr);
+
+            continue;
+        }
+
         glUseProgram(0);
+
+        
 
         glBindFramebuffer(
             GL_FRAMEBUFFER,

@@ -1,0 +1,1 @@
+#include "components/renderer/renderer_component.h"

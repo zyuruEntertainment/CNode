@@ -22,6 +22,8 @@ namespace CNode
 
     private:
         bool CreateShader();
+        bool CreateCubeShader();
+        bool CreateCube();
         bool CreateGrid(
             const SceneCamera& camera,
             int width,
@@ -48,6 +50,12 @@ namespace CNode
         unsigned int depthBuffer = 0;
 
         unsigned int shaderProgram = 0;
+        unsigned int cubeShaderProgram = 0;
+
+        unsigned int cubeVertexArray = 0;
+        unsigned int cubeVertexBuffer = 0;
+        unsigned int cubeIndexBuffer = 0;
+        int cubeIndexCount = 0;
 
         unsigned int gridVertexArray = 0;
         unsigned int gridVertexBuffer = 0;
