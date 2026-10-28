@@ -1,5 +1,6 @@
 #include "tab/windows/node_graph/node_graph.h"
 #include "scene/scene.h"
+#include "ui/add_button.h"
 
 #include "imgui.h"
 
@@ -98,15 +99,7 @@ namespace CNode
             return;
         }
 
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 4.0f));
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.26f, 0.26f, 0.30f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.36f, 0.36f, 0.40f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.46f, 0.46f, 0.50f, 1.0f));
-        if (ImGui::Button("+"))
-            ImGui::OpenPopup("AddNodePopup");
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar(2);
+        UI::AddButton("AddNodePopup");
 
         if (ImGui::BeginPopup("AddNodePopup"))
         {

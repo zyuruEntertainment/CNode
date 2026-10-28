@@ -204,6 +204,8 @@ add_executable(CNode
     src/scene/window/logo.cpp
     src/scene/window/font.cpp
 
+    src/ui/add_button.cpp
+
     src/registration/registration.cpp
     src/registration/registration_data.cpp
     src/registration/window_docking.cpp
