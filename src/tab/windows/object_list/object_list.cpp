@@ -45,22 +45,18 @@ namespace CNode
 
         gItemHovered = false;
 
-        if (ImGui::Button("+"))
-            ImGui::OpenPopup("CreateObjectPopup");
+        if (ImGui::Button("+ Add Object"))
+        {
+            CreateNewObject(scene);
+            ImGui::SetWindowFocus(title);
+        }
 
         if (ImGui::IsWindowHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
             !gItemHovered)
         {
-            ImGui::OpenPopup("CreateObjectPopup");
-        }
-
-        if (ImGui::BeginPopup("CreateObjectPopup"))
-        {
-            if (ImGui::MenuItem("Create Object"))
-                CreateNewObject(scene);
-
-            ImGui::EndPopup();
+            CreateNewObject(scene);
+            ImGui::SetWindowFocus(title);
         }
 
         ImGui::Separator();

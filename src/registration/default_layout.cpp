@@ -76,40 +76,9 @@ namespace CNode
                 viewport->WorkSize
             );
 
-            ImGuiID dockRight = 0;
-            ImGuiID dockLeft = 0;
-
-            // area kanan untuk Inspector dan Object List.
-            ImGui::DockBuilderSplitNode(
-                dockspaceID,
-                ImGuiDir_Right,
-                0.28f,
-                &dockRight,
-                &dockLeft
-            );
-
-            ImGuiID dockBottom = 0;
-            ImGuiID dockTop = 0;
-
-            // node graph di bawah scene editor.
-            ImGui::DockBuilderSplitNode(
-                dockLeft,
-                ImGuiDir_Down,
-                0.35f,
-                &dockBottom,
-                &dockTop
-            );
-
-            // kiri atas.
-            DockWindow("scene_editor", dockTop);
-
-            // kiri bawah.
-            DockWindow("node_graph", dockBottom);
-
-            // dua window ini berbagi satu dock node,
-            // sehingga Dear ImGui membuat tab otomatis.
-            DockWindow("inspector", dockRight);
-            DockWindow("object_list", dockRight);
+            // Jangan menghubungkan window-window default secara otomatis.
+            // Biarkan semua window mengambang terpisah tanpa docking/tab terkait.
+            // Hanya buat dockspace kosong; window akan ditampilkan terpisah.
 
             ImGui::DockBuilderFinish(dockspaceID);
         }
