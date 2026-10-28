@@ -59,12 +59,30 @@ namespace CNode
 
         if (ImGui::BeginPopup("InspectorAddComponent"))
         {
-            const char* availableTypes[] = { "Transform", "Mesh", "Renderer" };
-            for (const char* type : availableTypes)
+            // Scan components directory for available component types.
+            std::vector<std::string> availableTypes;
+            namespace fs = std::filesystem;
+            fs::path componentsDir = "include/components";
+            if (fs::exists(componentsDir) && fs::is_directory(componentsDir))
+            {
+                for (const auto& entry : fs::directory_iterator(componentsDir))
+                {
+                    if (entry.is_directory())
+                    {
+                        std::string name = entry.path().filename().string();
+                        if (!name.empty())
+                            name[0] = static_cast<char>(
+                                std::toupper(static_cast<unsigned char>(name[0])));
+                        availableTypes.push_back(name);
+                    }
+                }
+            }
+            std::sort(availableTypes.begin(), availableTypes.end());
+
+            for (const auto& type : availableTypes)
             {
                 bool alreadyHas = HasComponent(object->id, type);
-
-                if (!alreadyHas && ImGui::MenuItem(type))
+                if (!alreadyHas && ImGui::MenuItem(type.c_str()))
                 {
                     AddComponent(object->id, type);
                 }
@@ -97,12 +115,15 @@ namespace CNode
 
             ImGui::PushID(i);
 
-            // Header row: component name + drag-drop + context menu.
-            ImGui::TextUnformatted(componentType.c_str());
+            // Component header (collapsing). This is the interactive header item:
+            // clicking toggles open/close, left-click-hold drags to reorder,
+            // right-click opens the context menu.
+            bool headerOpen = ImGui::CollapsingHeader(
+                componentType.c_str(),
+                ImGuiTreeNodeFlags_DefaultOpen
+            );
 
-            // Drag-drop source. Use SourceAllowNullID because TextUnformatted()
-            // does not assign a widget ID (ItemAdd(bb, 0)), so g.LastItemData.ID
-            // is 0 and BeginDragDropSource() would otherwise assert.
+            // Drag-drop source on header (left-click hold).
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
             {
                 int dragIndex = i;
@@ -110,7 +131,7 @@ namespace CNode
                 ImGui::EndDragDropSource();
             }
 
-            // Drag-drop target: capture hover target, apply on release.
+            // Drag-drop target on header: capture hover target, apply on release.
             if (ImGui::BeginDragDropTarget())
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("COMPONENT_REORDER"))
@@ -121,8 +142,6 @@ namespace CNode
                 }
                 ImGui::EndDragDropTarget();
             }
-
-            ImGui::SameLine();
 
             // Right-click context menu on header.
             if (ImGui::BeginPopupContextItem("ComponentHeaderContextMenu"))
@@ -145,7 +164,6 @@ namespace CNode
                 ImGui::EndPopup();
             }
 
-            // Show whether component has data.
             bool hasData = true;
             if (componentType == "Mesh")
                 hasData = !object->mesh.type.empty();
@@ -158,10 +176,7 @@ namespace CNode
                 ImGui::TextDisabled(" (empty)");
             }
 
-            ImGui::PopID();
-
-            // Component properties (collapsing header).
-            if (ImGui::CollapsingHeader(componentType.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+            if (headerOpen)
             {
                 if (componentType == "Transform")
                 {
@@ -179,6 +194,8 @@ namespace CNode
                     ImGui::ColorEdit3("Color", object->renderer.color);
                 }
             }
+
+            ImGui::PopID();
         }
 
         // Apply deferred reorder only when the drag is completed (mouse released).
