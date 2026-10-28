@@ -25,12 +25,11 @@ namespace CNode
         ImGui::Text("Object: %s", object->name.c_str());
         ImGui::Text("ID: %llu", static_cast<unsigned long long>(object->id));
 
-        if (object->selectedNodeId == 0)
+        // No nodes in graph or no node selected.
+        if (object->graph.nodes.empty() || object->graph.selectedNodeId == 0)
         {
             ImGui::Separator();
-            ImGui::Text("Mesh: %s", object->mesh.type.empty() ? "-" : object->mesh.type.c_str());
-            ImGui::Checkbox("Renderer Enabled", &object->renderer.enabled);
-            ImGui::ColorEdit3("Color", object->renderer.color);
+            ImGui::TextUnformatted("No node selected.");
             ImGui::End();
             return;
         }
@@ -39,7 +38,7 @@ namespace CNode
 
         for (Node& node : object->graph.nodes)
         {
-            if (node.id == object->selectedNodeId)
+            if (node.id == object->graph.selectedNodeId)
             {
                 selectedNode = &node;
                 break;

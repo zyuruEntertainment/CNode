@@ -392,7 +392,8 @@ namespace CNode
         if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !interactiveHovered)
             ImGui::OpenPopup("AddNodePopup");
 
-        if (!gDragging && !gConnecting && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !nodeHit && !clickedSocket)
+        if (!gDragging && !gConnecting && ImGui::IsWindowHovered() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !nodeHit && !clickedSocket)
         {
             object->graph.selectedNodeId = 0;
         }

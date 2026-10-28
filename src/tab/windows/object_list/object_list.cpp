@@ -142,6 +142,33 @@ namespace CNode
                 if (ImGui::IsItemHovered())
                     gItemHovered = true;
 
+                // Right-click on a selected object opens its context menu.
+                if (selected && ImGui::IsItemHovered() &&
+                    ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+                {
+                    ImGui::OpenPopup("ObjectContextMenu");
+                }
+
+                if (selected && ImGui::BeginPopup("ObjectContextMenu"))
+                {
+                    if (ImGui::MenuItem("Delete"))
+                    {
+                        DeleteSceneObject(object.id);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    if (ImGui::MenuItem("Copy"))
+                    {
+                        CopySceneObject(object.id);
+                        ImGui::CloseCurrentPopup();
+                    }
+                    if (ImGui::MenuItem("Paste"))
+                    {
+                        PasteSceneObject();
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndPopup();
+                }
+
                 if (selected && ImGui::IsKeyPressed(ImGuiKey_F2))
                     StartRename(object);
 
@@ -149,6 +176,25 @@ namespace CNode
                     ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                     StartRename(object);
             }
+        }
+
+        // Keyboard shortcuts for the selected object.
+        if (scene.selectedObjectId != 0)
+        {
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete))
+            {
+                DeleteSceneObject(scene.selectedObjectId);
+            }
+            else if (ImGui::IsKeyPressed(ImGuiKey_C) &&
+                     ImGui::GetIO().KeyCtrl)
+            {
+                CopySceneObject(scene.selectedObjectId);
+            }
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_V) && ImGui::GetIO().KeyCtrl)
+        {
+            PasteSceneObject();
         }
 
         ImGui::End();

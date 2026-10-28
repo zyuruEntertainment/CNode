@@ -2,7 +2,9 @@
 
 #include "nodes/node_registry.h"
 
+#include <algorithm>
 #include <iostream>
+#include <string>
 
 namespace CNode
 {
@@ -10,6 +12,33 @@ namespace CNode
     {
         Scene scene;
         bool nodesRegistered = false;
+
+        // Clipboard for copy/paste of scene objects.
+        SceneObject gCopiedObject{};
+        bool gHasCopiedObject = false;
+
+        // Generates a name that does not collide with any existing scene object.
+        std::string MakeUniqueObjectName(Scene& scene, const char* desired)
+        {
+            auto nameExists = [&](const std::string& name)
+            {
+                for (const SceneObject& object : scene.objects)
+                    if (object.name == name)
+                        return true;
+                return false;
+            };
+
+            std::string name = desired;
+            if (!nameExists(name))
+                return name;
+
+            for (int suffix = 2; ; ++suffix)
+            {
+                std::string candidate = name + " " + std::to_string(suffix);
+                if (!nameExists(candidate))
+                    return candidate;
+            }
+        }
     }
 
     Scene& GetScene()
@@ -53,7 +82,6 @@ namespace CNode
         object.transform.rotation = { 0.0f, 0.0f, 0.0f };
         object.mesh.type = "";
         object.renderer.enabled = false;
-        object.selectedNodeId = 0;
         object.graph.nodes.clear();
         object.graph.connections.clear();
 
@@ -78,7 +106,7 @@ namespace CNode
                 );
 
                 object.graph.nodes.push_back(node);
-                object.selectedNodeId = object.graph.nodes.back().id;
+                object.graph.selectedNodeId = object.graph.nodes.back().id;
                 object.mesh.type = "Cube";
                 object.renderer.enabled = true;
                 return;
@@ -112,5 +140,57 @@ namespace CNode
 
         object->name = name;
         return true;
+    }
+
+    void DeleteSceneObject(unsigned long long id)
+    {
+        Scene& scene = GetScene();
+
+        auto it = std::find_if(
+            scene.objects.begin(),
+            scene.objects.end(),
+            [id](const SceneObject& object) { return object.id == id; });
+
+        if (it == scene.objects.end())
+            return;
+
+        scene.objects.erase(it);
+
+        if (scene.selectedObjectId == id)
+        {
+            scene.selectedObjectId =
+                scene.objects.empty() ? 0 : scene.objects.front().id;
+        }
+    }
+
+    void CopySceneObject(unsigned long long id)
+    {
+        SceneObject* object = FindSceneObject(id);
+
+        if (!object)
+            return;
+
+        gCopiedObject = *object;
+        gHasCopiedObject = true;
+    }
+
+    void PasteSceneObject()
+    {
+        if (!gHasCopiedObject)
+            return;
+
+        Scene& scene = GetScene();
+
+        SceneObject object = gCopiedObject;
+        object.id = scene.nextObjectId++;
+        object.name = MakeUniqueObjectName(scene, (object.name + " Copy").c_str());
+
+        scene.objects.push_back(object);
+        scene.selectedObjectId = scene.objects.back().id;
+    }
+
+    bool HasCopiedObject()
+    {
+        return gHasCopiedObject;
     }
 }

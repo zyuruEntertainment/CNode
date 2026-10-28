@@ -21,7 +21,6 @@ namespace CNode
         RendererComponent renderer{};
 
         NodeGraph graph{};
-        unsigned long long selectedNodeId = 0;
     };
 
     struct Scene
@@ -41,4 +40,8 @@ namespace CNode
     void CreateCubeNode(SceneObject& object);
 
     bool RenameSceneObject(unsigned long long id, const std::string& name);
+    void DeleteSceneObject(unsigned long long id);
+    void CopySceneObject(unsigned long long id);
+    void PasteSceneObject();
+    bool HasCopiedObject();
 }
