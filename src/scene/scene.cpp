@@ -17,6 +17,20 @@ namespace CNode
         SceneObject gCopiedObject{};
         bool gHasCopiedObject = false;
 
+        // Clipboard for copy/paste of individual component settings.
+        struct ComponentClipboard
+        {
+            std::string type;
+            Vec3 position{};
+            Vec3 rotation{};
+            Vec3 scale{};
+            std::string meshType;
+            bool rendererEnabled = false;
+            float rendererColor[3] = { 0.75f, 0.75f, 0.80f };
+        };
+        ComponentClipboard gComponentClipboard{};
+        bool gHasCopiedComponent = false;
+
         // Generates a name that does not collide with any existing scene object.
         std::string MakeUniqueObjectName(Scene& scene, const char* desired)
         {
@@ -192,5 +206,154 @@ namespace CNode
     bool HasCopiedObject()
     {
         return gHasCopiedObject;
+    }
+
+    void AddComponent(unsigned long long objectId, const std::string& componentType)
+    {
+        SceneObject* object = FindSceneObject(objectId);
+
+        if (!object)
+            return;
+
+        Scene& scene = GetScene();
+
+        // Don't add duplicates.
+        for (const std::string& existing : scene.componentOrder)
+            if (existing == componentType)
+                return;
+
+        scene.componentOrder.push_back(componentType);
+    }
+
+    void RemoveComponent(unsigned long long objectId, const std::string& componentType)
+    {
+        SceneObject* object = FindSceneObject(objectId);
+
+        if (!object)
+            return;
+
+        Scene& scene = GetScene();
+
+        auto it = std::find(
+            scene.componentOrder.begin(),
+            scene.componentOrder.end(),
+            componentType);
+
+        if (it == scene.componentOrder.end())
+            return;
+
+        scene.componentOrder.erase(it);
+
+        // Clear the component's data.
+        if (componentType == "Transform")
+        {
+            object->transform = TransformComponent{};
+        }
+        else if (componentType == "Mesh")
+        {
+            object->mesh = MeshComponent{};
+        }
+        else if (componentType == "Renderer")
+        {
+            object->renderer = RendererComponent{};
+        }
+    }
+
+    void MoveComponent(unsigned long long objectId, int fromIndex, int toIndex)
+    {
+        (void)objectId; // Components belong to the scene, not a specific object.
+
+        Scene& scene = GetScene();
+
+        if (fromIndex < 0 || fromIndex >= static_cast<int>(scene.componentOrder.size()))
+            return;
+        if (toIndex < 0 || toIndex >= static_cast<int>(scene.componentOrder.size()))
+            return;
+        if (fromIndex == toIndex)
+            return;
+
+        std::string type = scene.componentOrder[fromIndex];
+        scene.componentOrder.erase(scene.componentOrder.begin() + fromIndex);
+        scene.componentOrder.insert(scene.componentOrder.begin() + toIndex, type);
+    }
+
+    bool HasComponent(unsigned long long objectId, const std::string& componentType)
+    {
+        (void)objectId;
+
+        Scene& scene = GetScene();
+
+        for (const std::string& existing : scene.componentOrder)
+            if (existing == componentType)
+                return true;
+
+        return false;
+    }
+
+    void CopyComponent(unsigned long long objectId, const std::string& componentType)
+    {
+        SceneObject* object = FindSceneObject(objectId);
+
+        if (!object)
+            return;
+
+        gComponentClipboard.type = componentType;
+
+        if (componentType == "Transform")
+        {
+            gComponentClipboard.position = object->transform.position;
+            gComponentClipboard.rotation = object->transform.rotation;
+            gComponentClipboard.scale = object->transform.scale;
+        }
+        else if (componentType == "Mesh")
+        {
+            gComponentClipboard.meshType = object->mesh.type;
+        }
+        else if (componentType == "Renderer")
+        {
+            gComponentClipboard.rendererEnabled = object->renderer.enabled;
+            gComponentClipboard.rendererColor[0] = object->renderer.color[0];
+            gComponentClipboard.rendererColor[1] = object->renderer.color[1];
+            gComponentClipboard.rendererColor[2] = object->renderer.color[2];
+        }
+
+        gHasCopiedComponent = true;
+    }
+
+    void PasteComponent(unsigned long long objectId, const std::string& componentType)
+    {
+        if (!gHasCopiedComponent)
+            return;
+
+        SceneObject* object = FindSceneObject(objectId);
+
+        if (!object)
+            return;
+
+        if (gComponentClipboard.type != componentType)
+            return;
+
+        if (componentType == "Transform")
+        {
+            object->transform.position = gComponentClipboard.position;
+            object->transform.rotation = gComponentClipboard.rotation;
+            object->transform.scale = gComponentClipboard.scale;
+        }
+        else if (componentType == "Mesh")
+        {
+            object->mesh.type = gComponentClipboard.meshType;
+        }
+        else if (componentType == "Renderer")
+        {
+            object->renderer.enabled = gComponentClipboard.rendererEnabled;
+            object->renderer.color[0] = gComponentClipboard.rendererColor[0];
+            object->renderer.color[1] = gComponentClipboard.rendererColor[1];
+            object->renderer.color[2] = gComponentClipboard.rendererColor[2];
+        }
+    }
+
+    bool HasCopiedComponent()
+    {
+        return gHasCopiedComponent;
     }
 }

@@ -29,9 +29,9 @@ namespace CNode
                 node.sockets.push_back(socket);
             };
 
+            addSocket("Transform", SocketDirection::Output, SocketType::Transform);
             addSocket("Mesh", SocketDirection::Output, SocketType::Mesh);
             addSocket("Renderer", SocketDirection::Output, SocketType::Renderer);
-            addSocket("Transform", SocketDirection::Output, SocketType::Transform);
 
             return node;
         }

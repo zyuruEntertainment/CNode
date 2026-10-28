@@ -29,6 +29,10 @@ namespace CNode
         unsigned long long selectedObjectId = 0;
         unsigned long long nextObjectId = 1;
         unsigned long long nextNodeId = 1;
+
+        // Controls display order of components in the inspector and the
+        // order of sockets on nodes. Default: Transform, Mesh, Renderer.
+        std::vector<std::string> componentOrder = { "Transform", "Mesh", "Renderer" };
     };
 
     Scene& GetScene();
@@ -44,4 +48,15 @@ namespace CNode
     void CopySceneObject(unsigned long long id);
     void PasteSceneObject();
     bool HasCopiedObject();
+
+    // Component management.
+    void AddComponent(unsigned long long objectId, const std::string& componentType);
+    void RemoveComponent(unsigned long long objectId, const std::string& componentType);
+    void MoveComponent(unsigned long long objectId, int fromIndex, int toIndex);
+    bool HasComponent(unsigned long long objectId, const std::string& componentType);
+
+    // Component clipboard (copy/paste of individual component settings).
+    void CopyComponent(unsigned long long objectId, const std::string& componentType);
+    void PasteComponent(unsigned long long objectId, const std::string& componentType);
+    bool HasCopiedComponent();
 }
