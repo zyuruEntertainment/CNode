@@ -31,6 +31,107 @@ namespace CNode
         ComponentClipboard gComponentClipboard{};
         bool gHasCopiedComponent = false;
 
+        // Find socket index by name within a node. Returns -1 if not found.
+        int FindSocketIndexByName(Node& node, const std::string& name)
+        {
+            for (size_t i = 0; i < node.sockets.size(); ++i)
+                if (node.sockets[i].name == name)
+                    return static_cast<int>(i);
+            return -1;
+        }
+
+        // Map component type name to SocketType.
+        SocketType ComponentTypeToSocketType(const std::string& componentType)
+        {
+            if (componentType == "Transform")
+                return SocketType::Transform;
+            if (componentType == "Mesh")
+                return SocketType::Mesh;
+            if (componentType == "Renderer")
+                return SocketType::Renderer;
+            return SocketType::Mesh;
+        }
+
+        // Add an output socket for the given component type to every node in
+        // the object's graph, unless a socket with the same name already exists.
+        // Preserves existing socket IDs so connections are not broken.
+        void AddComponentSocket(SceneObject& object, const std::string& componentType)
+        {
+            SocketType socketType = ComponentTypeToSocketType(componentType);
+
+            for (Node& node : object.graph.nodes)
+            {
+                if (FindSocketIndexByName(node, componentType) != -1)
+                    continue;
+
+                NodeSocket socket;
+                socket.id = object.graph.nextSocketId++;
+                socket.nodeId = node.id;
+                socket.name = componentType;
+                socket.direction = SocketDirection::Output;
+                socket.type = socketType;
+                node.sockets.push_back(socket);
+            }
+        }
+
+        // Remove sockets matching the given component type name from every node
+        // in the object's graph.
+        void RemoveComponentSocket(SceneObject& object, const std::string& componentType)
+        {
+            for (Node& node : object.graph.nodes)
+            {
+                auto it = std::remove_if(
+                    node.sockets.begin(),
+                    node.sockets.end(),
+                    [&](const NodeSocket& s) { return s.name == componentType; });
+                node.sockets.erase(it, node.sockets.end());
+            }
+        }
+
+        // Reorder sockets in every node of the object's graph to match
+        // object.componentOrder. Sockets whose component no longer exists are
+        // dropped; sockets are matched by name so IDs (and thus connections)
+        // are preserved wherever possible.
+        void ReorderComponentSockets(SceneObject& object)
+        {
+            for (Node& node : object.graph.nodes)
+            {
+                std::vector<NodeSocket> reordered;
+                reordered.reserve(object.componentOrder.size());
+
+                for (const std::string& typeName : object.componentOrder)
+                {
+                    for (const NodeSocket& socket : node.sockets)
+                    {
+                        if (socket.name == typeName)
+                        {
+                            reordered.push_back(socket);
+                            break;
+                        }
+                    }
+                }
+
+                // Keep any sockets that don't have a matching component entry,
+                // appending them at the end (defensive; shouldn't normally happen).
+                for (const NodeSocket& socket : node.sockets)
+                {
+                    bool found = false;
+                    for (const NodeSocket& s : reordered)
+                    {
+                        if (s.id == socket.id)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        reordered.push_back(socket);
+                }
+
+                node.sockets = std::move(reordered);
+            }
+        }
+
         // Generates a name that does not collide with any existing scene object.
         std::string MakeUniqueObjectName(Scene& scene, const char* desired)
         {
@@ -222,6 +323,9 @@ namespace CNode
                 return;
 
         object->componentOrder.push_back(componentType);
+
+        // Keep node sockets in sync with component order.
+        AddComponentSocket(*object, componentType);
     }
 
     void RemoveComponent(unsigned long long objectId, const std::string& componentType)
@@ -240,6 +344,9 @@ namespace CNode
             return;
 
         object->componentOrder.erase(it);
+
+        // Keep node sockets in sync with component order.
+        RemoveComponentSocket(*object, componentType);
 
         // Clear the component's data.
         if (componentType == "Transform")
@@ -275,6 +382,9 @@ namespace CNode
         std::string type = order[fromIndex];
         order.erase(order.begin() + fromIndex);
         order.insert(order.begin() + toIndex, type);
+
+        // Keep node sockets in sync with component order.
+        ReorderComponentSockets(*object);
     }
 
     bool HasComponent(unsigned long long objectId, const std::string& componentType)
