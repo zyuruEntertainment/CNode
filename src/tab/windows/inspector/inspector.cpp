@@ -4,6 +4,10 @@
 
 #include "imgui.h"
 
+#include <filesystem>
+#include <cctype>
+#include <algorithm>
+
 namespace CNode
 {
     void DrawInspector(const char* title, bool* open)
@@ -96,8 +100,10 @@ namespace CNode
             // Header row: component name + drag-drop + context menu.
             ImGui::TextUnformatted(componentType.c_str());
 
-            // Drag-drop source.
-            if (ImGui::BeginDragDropSource())
+            // Drag-drop source. Use SourceAllowNullID because TextUnformatted()
+            // does not assign a widget ID (ItemAdd(bb, 0)), so g.LastItemData.ID
+            // is 0 and BeginDragDropSource() would otherwise assert.
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
             {
                 int dragIndex = i;
                 ImGui::SetDragDropPayload("COMPONENT_REORDER", &dragIndex, sizeof(int));
