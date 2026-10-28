@@ -101,15 +101,15 @@ namespace CNode
             }
 
             // Drag-drop source: initiates reorder drag from this header.
-            if (ImGui::DragDropSource())
+            if (ImGui::BeginDragDropSource())
             {
                 int dragIndex = i;
                 ImGui::SetDragDropPayload("COMPONENT_REORDER", &dragIndex, sizeof(int));
-                ImGui::DragDropEnd();
+                ImGui::EndDragDropSource();
             }
 
             // Drag-drop target: accepts reorder drop on this header.
-            if (ImGui::DragDropTarget())
+            if (ImGui::BeginDragDropTarget())
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("COMPONENT_REORDER"))
                 {
@@ -117,7 +117,7 @@ namespace CNode
                     if (fromIndex != i)
                         MoveComponent(object->id, fromIndex, i);
                 }
-                ImGui::DragDropTargetEnd();
+                ImGui::EndDragDropTarget();
             }
 
             // Component properties.
