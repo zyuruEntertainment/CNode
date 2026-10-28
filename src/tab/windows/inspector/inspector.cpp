@@ -54,10 +54,15 @@ namespace CNode
 
         ImGui::Separator();
 
-        // Components list (order matches componentOrder; sockets follow the same order).
+        // Components list (order matches componentOrder; sockets follow same order).
         ImGui::TextUnformatted("Components:");
         ImGui::SameLine();
         ImGui::TextDisabled("(drag header to reorder, right-click for menu)");
+
+        // Deferred reorder: do NOT modify componentOrder during ImGui iteration
+        // (it invalidates indices and causes abort()). Collect and apply after.
+        int reorderFrom = -1;
+        int reorderTo = -1;
 
         for (int i = 0; i < static_cast<int>(scene.componentOrder.size()); ++i)
         {
@@ -65,21 +70,32 @@ namespace CNode
 
             ImGui::PushID(i);
 
-            // Component header row.
+            // Header row: component name + drag-drop + context menu.
             ImGui::TextUnformatted(componentType.c_str());
+
+            // Drag-drop source.
+            if (ImGui::BeginDragDropSource())
+            {
+                int dragIndex = i;
+                ImGui::SetDragDropPayload("COMPONENT_REORDER", &dragIndex, sizeof(int));
+                ImGui::EndDragDropSource();
+            }
+
+            // Drag-drop target.
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("COMPONENT_REORDER"))
+                {
+                    int fromIndex = *(const int*)payload->Data;
+                    reorderFrom = fromIndex;
+                    reorderTo = i;
+                }
+                ImGui::EndDragDropTarget();
+            }
+
             ImGui::SameLine();
 
-            // Indicate whether this component has data.
-            bool hasData = true;
-            if (componentType == "Mesh")
-                hasData = !object->mesh.type.empty();
-            else if (componentType == "Renderer")
-                hasData = object->renderer.enabled;
-
-            if (!hasData)
-                ImGui::TextDisabled(" (empty)");
-
-            // Right-click context menu on the header.
+            // Right-click context menu on header.
             if (ImGui::BeginPopupContextItem("ComponentHeaderContextMenu"))
             {
                 if (ImGui::MenuItem("Delete"))
@@ -100,46 +116,29 @@ namespace CNode
                 ImGui::EndPopup();
             }
 
-            // Drag-drop source: initiates reorder drag from this header.
-            if (ImGui::BeginDragDropSource())
+            // Show whether component has data.
+            bool hasData = true;
+            if (componentType == "Mesh")
+                hasData = !object->mesh.type.empty();
+            else if (componentType == "Renderer")
+                hasData = object->renderer.enabled;
+
+            if (!hasData)
             {
-                int dragIndex = i;
-                ImGui::SetDragDropPayload("COMPONENT_REORDER", &dragIndex, sizeof(int));
-                ImGui::EndDragDropSource();
+                ImGui::SameLine();
+                ImGui::TextDisabled(" (empty)");
             }
 
-            // Drag-drop target: accepts reorder drop on this header.
-            if (ImGui::BeginDragDropTarget())
-            {
-                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("COMPONENT_REORDER"))
-                {
-                    int fromIndex = *(const int*)payload->Data;
-                    if (fromIndex != i)
-                        MoveComponent(object->id, fromIndex, i);
-                }
-                ImGui::EndDragDropTarget();
-            }
+            ImGui::PopID();
 
-            // Component properties.
+            // Component properties (collapsing header).
             if (ImGui::CollapsingHeader(componentType.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
             {
                 if (componentType == "Transform")
                 {
-                    ImGui::DragFloat3(
-                        "Position",
-                        &object->transform.position.x,
-                        0.01f
-                    );
-                    ImGui::DragFloat3(
-                        "Rotation",
-                        &object->transform.rotation.x,
-                        0.1f
-                    );
-                    ImGui::DragFloat3(
-                        "Scale",
-                        &object->transform.scale.x,
-                        0.01f
-                    );
+                    ImGui::DragFloat3("Position", &object->transform.position.x, 0.01f);
+                    ImGui::DragFloat3("Rotation", &object->transform.rotation.x, 0.1f);
+                    ImGui::DragFloat3("Scale", &object->transform.scale.x, 0.01f);
                 }
                 else if (componentType == "Mesh")
                 {
@@ -151,13 +150,17 @@ namespace CNode
                     ImGui::ColorEdit3("Color", object->renderer.color);
                 }
             }
+        }
 
-            ImGui::PopID();
+        // Apply deferred reorder after ImGui iteration is done.
+        if (reorderFrom != -1 && reorderTo != -1 && reorderFrom != reorderTo)
+        {
+            MoveComponent(object->id, reorderFrom, reorderTo);
         }
 
         ImGui::Separator();
 
-        // Node properties (only when a node is selected).
+        // Node info (only when a node is selected).
         Node* selectedNode = nullptr;
         for (Node& node : object->graph.nodes)
         {
@@ -172,43 +175,9 @@ namespace CNode
         {
             ImGui::TextUnformatted("No node selected.");
         }
-        else if (selectedNode->type == "cube")
-        {
-            ImGui::Text("Node: %s", selectedNode->label.c_str());
-
-            if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::DragFloat3(
-                    "Position",
-                    &object->transform.position.x,
-                    0.01f
-                );
-                ImGui::DragFloat3(
-                    "Rotation",
-                    &object->transform.rotation.x,
-                    0.1f
-                );
-                ImGui::DragFloat3(
-                    "Scale",
-                    &object->transform.scale.x,
-                    0.01f
-                );
-            }
-
-            if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Text("Type: %s", object->mesh.type.c_str());
-            }
-
-            if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Checkbox("Enabled", &object->renderer.enabled);
-                ImGui::ColorEdit3("Color", object->renderer.color);
-            }
-        }
         else
         {
-            ImGui::Text("Unknown node type: %s", selectedNode->type.c_str());
+            ImGui::Text("Node: %s (%s)", selectedNode->label.c_str(), selectedNode->type.c_str());
         }
 
         ImGui::End();
