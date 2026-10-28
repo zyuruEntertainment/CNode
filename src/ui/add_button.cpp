@@ -15,7 +15,7 @@ namespace CNode::UI
 
             ImGui::PushStyleVar(
                 ImGuiStyleVar_FramePadding,
-                ImVec2(8.0f, 4.0f)
+                ImVec2(10.0f, 6.0f)
             );
 
             ImGui::PushStyleColor(
