@@ -21,6 +21,10 @@ namespace CNode
         RendererComponent renderer{};
 
         NodeGraph graph{};
+
+        // Per-object component display order. Also defines the order of
+        // sockets on nodes belonging to this object.
+        std::vector<std::string> componentOrder = { "Transform", "Mesh", "Renderer" };
     };
 
     struct Scene
@@ -29,10 +33,6 @@ namespace CNode
         unsigned long long selectedObjectId = 0;
         unsigned long long nextObjectId = 1;
         unsigned long long nextNodeId = 1;
-
-        // Controls display order of components in the inspector and the
-        // order of sockets on nodes. Default: Transform, Mesh, Renderer.
-        std::vector<std::string> componentOrder = { "Transform", "Mesh", "Renderer" };
     };
 
     Scene& GetScene();
@@ -49,7 +49,7 @@ namespace CNode
     void PasteSceneObject();
     bool HasCopiedObject();
 
-    // Component management.
+    // Component management (per-object).
     void AddComponent(unsigned long long objectId, const std::string& componentType);
     void RemoveComponent(unsigned long long objectId, const std::string& componentType);
     void MoveComponent(unsigned long long objectId, int fromIndex, int toIndex);

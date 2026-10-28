@@ -15,23 +15,30 @@ namespace CNode
             node.x = x;
             node.y = y;
 
-            auto addSocket = [&node, &object](
-                const std::string& name,
-                SocketDirection direction,
-                SocketType type)
+            // Create output sockets matching the object's component order.
+            // Each component in componentOrder gets a socket with matching name/type.
+            for (size_t i = 0; i < object.componentOrder.size(); ++i)
             {
+                const std::string& typeName = object.componentOrder[i];
+
+                SocketDirection direction = SocketDirection::Output;
+                SocketType socketType = SocketType::Mesh;
+
+                if (typeName == "Transform")
+                    socketType = SocketType::Transform;
+                else if (typeName == "Mesh")
+                    socketType = SocketType::Mesh;
+                else if (typeName == "Renderer")
+                    socketType = SocketType::Renderer;
+
                 NodeSocket socket;
                 socket.id = object.graph.nextSocketId++;
                 socket.nodeId = node.id;
-                socket.name = name;
+                socket.name = typeName;
                 socket.direction = direction;
-                socket.type = type;
+                socket.type = socketType;
                 node.sockets.push_back(socket);
-            };
-
-            addSocket("Transform", SocketDirection::Output, SocketType::Transform);
-            addSocket("Mesh", SocketDirection::Output, SocketType::Mesh);
-            addSocket("Renderer", SocketDirection::Output, SocketType::Renderer);
+            }
 
             return node;
         }

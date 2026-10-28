@@ -98,6 +98,7 @@ namespace CNode
         object.renderer.enabled = false;
         object.graph.nodes.clear();
         object.graph.connections.clear();
+        object.componentOrder = { "Transform", "Mesh", "Renderer" };
 
         scene.objects.push_back(object);
         scene.selectedObjectId = scene.objects.back().id;
@@ -215,14 +216,12 @@ namespace CNode
         if (!object)
             return;
 
-        Scene& scene = GetScene();
-
         // Don't add duplicates.
-        for (const std::string& existing : scene.componentOrder)
+        for (const std::string& existing : object->componentOrder)
             if (existing == componentType)
                 return;
 
-        scene.componentOrder.push_back(componentType);
+        object->componentOrder.push_back(componentType);
     }
 
     void RemoveComponent(unsigned long long objectId, const std::string& componentType)
@@ -232,17 +231,15 @@ namespace CNode
         if (!object)
             return;
 
-        Scene& scene = GetScene();
-
         auto it = std::find(
-            scene.componentOrder.begin(),
-            scene.componentOrder.end(),
+            object->componentOrder.begin(),
+            object->componentOrder.end(),
             componentType);
 
-        if (it == scene.componentOrder.end())
+        if (it == object->componentOrder.end())
             return;
 
-        scene.componentOrder.erase(it);
+        object->componentOrder.erase(it);
 
         // Clear the component's data.
         if (componentType == "Transform")
@@ -261,29 +258,33 @@ namespace CNode
 
     void MoveComponent(unsigned long long objectId, int fromIndex, int toIndex)
     {
-        (void)objectId; // Components belong to the scene, not a specific object.
+        SceneObject* object = FindSceneObject(objectId);
 
-        Scene& scene = GetScene();
-
-        if (fromIndex < 0 || fromIndex >= static_cast<int>(scene.componentOrder.size()))
+        if (!object)
             return;
-        if (toIndex < 0 || toIndex >= static_cast<int>(scene.componentOrder.size()))
+
+        auto& order = object->componentOrder;
+
+        if (fromIndex < 0 || fromIndex >= static_cast<int>(order.size()))
+            return;
+        if (toIndex < 0 || toIndex >= static_cast<int>(order.size()))
             return;
         if (fromIndex == toIndex)
             return;
 
-        std::string type = scene.componentOrder[fromIndex];
-        scene.componentOrder.erase(scene.componentOrder.begin() + fromIndex);
-        scene.componentOrder.insert(scene.componentOrder.begin() + toIndex, type);
+        std::string type = order[fromIndex];
+        order.erase(order.begin() + fromIndex);
+        order.insert(order.begin() + toIndex, type);
     }
 
     bool HasComponent(unsigned long long objectId, const std::string& componentType)
     {
-        (void)objectId;
+        SceneObject* object = FindSceneObject(objectId);
 
-        Scene& scene = GetScene();
+        if (!object)
+            return false;
 
-        for (const std::string& existing : scene.componentOrder)
+        for (const std::string& existing : object->componentOrder)
             if (existing == componentType)
                 return true;
 

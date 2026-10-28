@@ -28,6 +28,28 @@ namespace CNode
         ImGui::Text("Object: %s", object->name.c_str());
         ImGui::Text("ID: %llu", static_cast<unsigned long long>(object->id));
 
+        // Find the currently selected node (if any).
+        Node* selectedNode = nullptr;
+        for (Node& node : object->graph.nodes)
+        {
+            if (node.id == object->graph.selectedNodeId)
+            {
+                selectedNode = &node;
+                break;
+            }
+        }
+
+        // If no node is selected, show a message and do not render components.
+        if (!selectedNode)
+        {
+            ImGui::Separator();
+            ImGui::TextUnformatted("No node selected.");
+            ImGui::End();
+            return;
+        }
+
+        ImGui::Text("Node: %s (%s)", selectedNode->label.c_str(), selectedNode->type.c_str());
+
         // Add Component button (uses shared AddButton from src/ui/add_button).
         UI::AddButton("InspectorAddComponent", "+ Add Component");
 
@@ -36,13 +58,7 @@ namespace CNode
             const char* availableTypes[] = { "Transform", "Mesh", "Renderer" };
             for (const char* type : availableTypes)
             {
-                bool alreadyHas = false;
-                for (const std::string& existing : scene.componentOrder)
-                    if (existing == type)
-                    {
-                        alreadyHas = true;
-                        break;
-                    }
+                bool alreadyHas = HasComponent(object->id, type);
 
                 if (!alreadyHas && ImGui::MenuItem(type))
                 {
@@ -54,19 +70,20 @@ namespace CNode
 
         ImGui::Separator();
 
-        // Components list (order matches componentOrder; sockets follow same order).
+        // Components list (order matches object->componentOrder; sockets follow same order).
         ImGui::TextUnformatted("Components:");
         ImGui::SameLine();
         ImGui::TextDisabled("(drag header to reorder, right-click for menu)");
 
-        // Deferred reorder: do NOT modify componentOrder during ImGui iteration
-        // (it invalidates indices and causes abort()). Collect and apply after.
+        // Deferred reorder: capture target indices during drag, apply only on
+        // mouse release to avoid mutating the vector while ImGui drag-drop is
+        // active (which causes abort()).
         int reorderFrom = -1;
         int reorderTo = -1;
 
-        for (int i = 0; i < static_cast<int>(scene.componentOrder.size()); ++i)
+        for (int i = 0; i < static_cast<int>(object->componentOrder.size()); ++i)
         {
-            const std::string& componentType = scene.componentOrder[i];
+            const std::string& componentType = object->componentOrder[i];
 
             ImGui::PushID(i);
 
@@ -81,7 +98,7 @@ namespace CNode
                 ImGui::EndDragDropSource();
             }
 
-            // Drag-drop target.
+            // Drag-drop target: capture hover target, apply on release.
             if (ImGui::BeginDragDropTarget())
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("COMPONENT_REORDER"))
@@ -152,32 +169,51 @@ namespace CNode
             }
         }
 
-        // Apply deferred reorder after ImGui iteration is done.
-        if (reorderFrom != -1 && reorderTo != -1 && reorderFrom != reorderTo)
+        // Apply deferred reorder only when the drag is completed (mouse released).
+        if (reorderFrom != -1 && reorderTo != -1 && reorderFrom != reorderTo &&
+            ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
             MoveComponent(object->id, reorderFrom, reorderTo);
         }
 
         ImGui::Separator();
 
-        // Node info (only when a node is selected).
-        Node* selectedNode = nullptr;
-        for (Node& node : object->graph.nodes)
+        // Node properties (only when a node is selected).
+        if (selectedNode->type == "cube")
         {
-            if (node.id == object->graph.selectedNodeId)
+            if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                selectedNode = &node;
-                break;
+                ImGui::DragFloat3(
+                    "Position",
+                    &object->transform.position.x,
+                    0.01f
+                );
+                ImGui::DragFloat3(
+                    "Rotation",
+                    &object->transform.rotation.x,
+                    0.1f
+                );
+                ImGui::DragFloat3(
+                    "Scale",
+                    &object->transform.scale.x,
+                    0.01f
+                );
             }
-        }
 
-        if (!selectedNode)
-        {
-            ImGui::TextUnformatted("No node selected.");
+            if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Text("Type: %s", object->mesh.type.c_str());
+            }
+
+            if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                ImGui::Checkbox("Enabled", &object->renderer.enabled);
+                ImGui::ColorEdit3("Color", object->renderer.color);
+            }
         }
         else
         {
-            ImGui::Text("Node: %s (%s)", selectedNode->label.c_str(), selectedNode->type.c_str());
+            ImGui::Text("Unknown node type: %s", selectedNode->type.c_str());
         }
 
         ImGui::End();
