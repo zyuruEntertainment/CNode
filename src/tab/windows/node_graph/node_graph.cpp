@@ -103,12 +103,9 @@ namespace CNode
 
         if (ImGui::BeginPopup("AddNodePopup"))
         {
-            if (ImGui::BeginMenu("3D Object"))
+            if (ImGui::MenuItem("Cube"))
             {
-                if (ImGui::MenuItem("Cube"))
-                    CreateCubeNode(*object);
-
-                ImGui::EndMenu();
+                CreateCubeNode(*object);
             }
 
             ImGui::EndPopup();
@@ -134,7 +131,7 @@ namespace CNode
         if (object->graph.nodes.empty())
         {
             ImGui::SetCursorPos(ImVec2(20, 20));
-            ImGui::TextUnformatted("Empty graph. Use + or right-click to add a Cube.");
+            ImGui::TextUnformatted("Empty graph. Use + to add a Cube.");
         }
 
         // Draw existing connections.

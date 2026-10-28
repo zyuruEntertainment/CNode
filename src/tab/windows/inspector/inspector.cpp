@@ -28,7 +28,9 @@ namespace CNode
         if (object->selectedNodeId == 0)
         {
             ImGui::Separator();
-            ImGui::TextUnformatted("No node selected.");
+            ImGui::Text("Mesh: %s", object->mesh.type.empty() ? "-" : object->mesh.type.c_str());
+            ImGui::Checkbox("Renderer Enabled", &object->renderer.enabled);
+            ImGui::ColorEdit3("Color", object->renderer.color);
             ImGui::End();
             return;
         }

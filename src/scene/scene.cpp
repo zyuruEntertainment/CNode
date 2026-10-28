@@ -49,8 +49,13 @@ namespace CNode
         object.id = scene.nextObjectId++;
         object.name = name.empty() ? "NewObject" : name;
         object.transform.scale = { 1.0f, 1.0f, 1.0f };
-        object.mesh.type = "Cube";
-        object.renderer.enabled = true;
+        object.transform.position = { 0.0f, 0.0f, 0.0f };
+        object.transform.rotation = { 0.0f, 0.0f, 0.0f };
+        object.mesh.type = "";
+        object.renderer.enabled = false;
+        object.selectedNodeId = 0;
+        object.graph.nodes.clear();
+        object.graph.connections.clear();
 
         scene.objects.push_back(object);
         scene.selectedObjectId = scene.objects.back().id;
@@ -74,6 +79,8 @@ namespace CNode
 
                 object.graph.nodes.push_back(node);
                 object.selectedNodeId = object.graph.nodes.back().id;
+                object.mesh.type = "Cube";
+                object.renderer.enabled = true;
                 return;
             }
         }
