@@ -27,9 +27,35 @@ namespace CNode
         std::snprintf(gRenameBuffer, sizeof(gRenameBuffer), "%s", name.c_str());
     }
 
+    // Generates a name that does not collide with any existing scene object.
+    // Dear ImGui derives widget IDs from labels, so duplicate names (e.g. two
+    // objects both called "NewObject") produce conflicting Selectable IDs.
+    static std::string MakeUniqueObjectName(Scene& scene, const char* desired)
+    {
+        auto nameExists = [&](const std::string& name)
+        {
+            for (const SceneObject& object : scene.objects)
+                if (object.name == name)
+                    return true;
+            return false;
+        };
+
+        std::string name = desired;
+        if (!nameExists(name))
+            return name;
+
+        // Append " 2", " 3", ... until a free name is found.
+        for (int suffix = 2; ; ++suffix)
+        {
+            std::string candidate = name + " " + std::to_string(suffix);
+            if (!nameExists(candidate))
+                return candidate;
+        }
+    }
+
     static void CreateNewObject(Scene& scene)
     {
-        SceneObject& object = CreateSceneObject("NewObject");
+        SceneObject& object = CreateSceneObject(MakeUniqueObjectName(scene, "NewObject"));
         scene.selectedObjectId = object.id;
         StartRename(object);
     }
@@ -46,7 +72,7 @@ namespace CNode
 
         gItemHovered = false;
 
-        UI::AddButton("ObjectListContextMenu");
+        UI::AddButton("ObjectListContextMenu", "+ Add Object");
 
         if (ImGui::IsWindowHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&

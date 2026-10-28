@@ -2,14 +2,12 @@
 
 namespace CNode::UI
 {
-    // Compact "+" button shared by every window that creates something
-    // (Object List, Node Graph, ...). Keeps the plus button style
-    // consistent across the editor.
+    // Shared "add" button used by every window that creates something
+    // (Object List, Node Graph, ...). Keeps the button readable and
+    // consistent across the editor, and gives each window a modular popup
+    // to fill in with its own menu entries:
     //
-    // Draws the button and, when clicked, opens popupID so the caller can
-    // draw its own modular menu:
-    //
-    //   UI::AddButton("ObjectListContextMenu");
+    //   UI::AddButton("ObjectListContextMenu", "+ Add Object");
     //
     //   if (ImGui::BeginPopup("ObjectListContextMenu"))
     //   {
@@ -19,7 +17,11 @@ namespace CNode::UI
     //       ImGui::EndPopup();
     //   }
     //
-    // Pass nullptr to only draw the button and handle the click yourself.
+    // Draws the button and, when clicked, opens popupID.
+    // Pass nullptr for popupID to handle the click yourself.
     // Returns true when the button was pressed this frame.
-    bool AddButton(const char* popupID = nullptr);
+    bool AddButton(
+        const char* popupID = nullptr,
+        const char* label = "+  Add"
+    );
 }

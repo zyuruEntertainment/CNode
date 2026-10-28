@@ -99,7 +99,7 @@ namespace CNode
             return;
         }
 
-        UI::AddButton("AddNodePopup");
+        UI::AddButton("AddNodePopup", "+ Add Node");
 
         if (ImGui::BeginPopup("AddNodePopup"))
         {
