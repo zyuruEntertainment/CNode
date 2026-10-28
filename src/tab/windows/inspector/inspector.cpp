@@ -81,9 +81,15 @@ namespace CNode
         int reorderFrom = -1;
         int reorderTo = -1;
 
+        // Deferred removal: collect component types to delete, apply after the
+        // loop to avoid mutating the vector while ImGui is rendering it.
+        std::vector<std::string> deferredRemovals;
+
         for (int i = 0; i < static_cast<int>(object->componentOrder.size()); ++i)
         {
-            const std::string& componentType = object->componentOrder[i];
+            // Copy by value so the reference stays valid even if
+            // RemoveComponent mutates componentOrder inside the context menu.
+            std::string componentType = object->componentOrder[i];
 
             ImGui::PushID(i);
 
@@ -117,7 +123,7 @@ namespace CNode
             {
                 if (ImGui::MenuItem("Delete"))
                 {
-                    RemoveComponent(object->id, componentType);
+                    deferredRemovals.push_back(componentType);
                     ImGui::CloseCurrentPopup();
                 }
                 if (ImGui::MenuItem("Copy"))
@@ -176,45 +182,9 @@ namespace CNode
             MoveComponent(object->id, reorderFrom, reorderTo);
         }
 
-        ImGui::Separator();
-
-        // Node properties (only when a node is selected).
-        if (selectedNode->type == "cube")
-        {
-            if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::DragFloat3(
-                    "Position",
-                    &object->transform.position.x,
-                    0.01f
-                );
-                ImGui::DragFloat3(
-                    "Rotation",
-                    &object->transform.rotation.x,
-                    0.1f
-                );
-                ImGui::DragFloat3(
-                    "Scale",
-                    &object->transform.scale.x,
-                    0.01f
-                );
-            }
-
-            if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Text("Type: %s", object->mesh.type.c_str());
-            }
-
-            if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
-            {
-                ImGui::Checkbox("Enabled", &object->renderer.enabled);
-                ImGui::ColorEdit3("Color", object->renderer.color);
-            }
-        }
-        else
-        {
-            ImGui::Text("Unknown node type: %s", selectedNode->type.c_str());
-        }
+        // Apply deferred component removals now that ImGui rendering is done.
+        for (const std::string& type : deferredRemovals)
+            RemoveComponent(object->id, type);
 
         ImGui::End();
     }
