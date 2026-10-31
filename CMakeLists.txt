@@ -212,8 +212,22 @@ add_executable(CNode
     src/registration/default_layout.cpp
 
     src/tab/windows/inspector/inspector.cpp
+    src/tab/windows/inspector/inspector_add_component.cpp
+    src/tab/windows/inspector/inspector_components.cpp
+    src/tab/windows/inspector/inspector_component_item.cpp
+
     src/tab/windows/node_graph/node_graph.cpp
+    src/tab/windows/node_graph/node_graph_add_node.cpp
+    src/tab/windows/node_graph/node_graph_connections.cpp
+    src/tab/windows/node_graph/node_graph_input.cpp
+    src/tab/windows/node_graph/node_graph_nodes.cpp
+
     src/tab/windows/object_list/object_list.cpp
+    src/tab/windows/object_list/object_list_context_menu.cpp
+    src/tab/windows/object_list/object_list_item.cpp
+    src/tab/windows/object_list/object_list_keyboard.cpp
+    src/tab/windows/object_list/object_list_rename.cpp
+
     src/tab/windows/project_setting/project_setting.cpp
     src/tab/windows/project_setting/project_setting_data.cpp
     src/tab/windows/project_setting/environment_settings.cpp
