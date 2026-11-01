@@ -18,6 +18,25 @@ namespace CNode
             return fade * fade * (3.0f - 2.0f * fade);
         }
 
+        // Fade grid lines based on projected screen-space spacing between
+        // adjacent lines. Prevents dense moiré patterns near the horizon.
+        float ScreenFade(
+            float screenSpacing,
+            float lowPixels,
+            float highPixels
+        )
+        {
+            if (highPixels <= lowPixels)
+                return screenSpacing >= highPixels ? 1.0f : 0.0f;
+
+            const float t = std::clamp(
+                (screenSpacing - lowPixels) / (highPixels - lowPixels),
+                0.0f,
+                1.0f
+            );
+            return t * t * (3.0f - 2.0f * t);
+        }
+
         void BlendColor(
             float fade,
             float opacity,
@@ -109,6 +128,38 @@ namespace CNode
             projectSettings.gridRenderDistance
         );
 
+        // View direction for screen-space depth estimation. Used only to
+        // estimate projected line spacing — never to hide a grid family.
+        float viewDirX = targetX - cameraX;
+        float viewDirY = targetY - camera.position[1];
+        float viewDirZ = targetZ - cameraZ;
+        const float viewDirLength = std::sqrt(
+            viewDirX * viewDirX + viewDirY * viewDirY + viewDirZ * viewDirZ
+        );
+        if (viewDirLength > 0.0001f)
+        {
+            viewDirX /= viewDirLength;
+            viewDirY /= viewDirLength;
+            viewDirZ /= viewDirLength;
+        }
+        else
+        {
+            viewDirX = 0.0f;
+            viewDirY = -1.0f;
+            viewDirZ = 0.0f;
+        }
+
+        const float tanHalfFov = std::tan(fovRadians * 0.5f);
+        const float viewportScale = static_cast<float>(viewportHeight) * 0.5f;
+
+        // Screen-space pixel thresholds. Lines closer together than lowPixels
+        // fade out to avoid moiré. Major lines keep a lower threshold so they
+        // remain visible longer than minor lines.
+        const float minorMinPixels = 2.0f;
+        const float minorMaxPixels = 5.0f;
+        const float majorMinPixels = 1.0f;
+        const float majorMaxPixels = 3.0f;
+
         const int minI = static_cast<int>(
             std::floor((cameraX - radius) / spacing)
         );
@@ -155,9 +206,32 @@ namespace CNode
             const float fadeAtClosest =
                 SmoothFade(std::fabs(deltaX), radius);
 
+            // Estimate projected screen-space spacing for this line and fade
+            // minor lines that are too close together to avoid moiré.
+            const float depthX =
+                (x - cameraX) * viewDirX +
+                (0.0f - camera.position[1]) * viewDirY +
+                (closestZ - cameraZ) * viewDirZ;
+            const float safeDepthX = std::max(depthX, 1.0f);
+            const float pixelsPerUnitLineX =
+                viewportScale / (tanHalfFov * safeDepthX);
+            const float screenSpacingLineX =
+                spacing * pixelsPerUnitLineX;
+            const float screenFadeX = major ?
+                ScreenFade(
+                    screenSpacingLineX,
+                    majorMinPixels,
+                    majorMaxPixels
+                ) :
+                ScreenFade(
+                    screenSpacingLineX,
+                    minorMinPixels,
+                    minorMaxPixels
+                );
+
             float colorAtClosest[3] = {};
             BlendColor(
-                fadeAtClosest,
+                fadeAtClosest * screenFadeX,
                 opacity,
                 projectSettings.backgroundColor,
                 gridColor,
@@ -172,7 +246,7 @@ namespace CNode
                 );
 
                 const float fadeAtStart =
-                    SmoothFade(distanceAtStart, radius);
+                    SmoothFade(distanceAtStart, radius) * screenFadeX;
 
                 float colorAtStart[3] = {};
                 BlendColor(
@@ -203,7 +277,7 @@ namespace CNode
                 );
 
                 const float fadeAtEnd =
-                    SmoothFade(distanceAtEnd, radius);
+                    SmoothFade(distanceAtEnd, radius) * screenFadeX;
 
                 float colorAtEnd[3] = {};
                 BlendColor(
@@ -270,9 +344,30 @@ namespace CNode
             const float fadeAtClosest =
                 SmoothFade(std::fabs(deltaZ), radius);
 
+            const float depthZ =
+                (closestX - cameraX) * viewDirX +
+                (0.0f - camera.position[1]) * viewDirY +
+                (z - cameraZ) * viewDirZ;
+            const float safeDepthZ = std::max(depthZ, 1.0f);
+            const float pixelsPerUnitLineZ =
+                viewportScale / (tanHalfFov * safeDepthZ);
+            const float screenSpacingLineZ =
+                spacing * pixelsPerUnitLineZ;
+            const float screenFadeZ = major ?
+                ScreenFade(
+                    screenSpacingLineZ,
+                    majorMinPixels,
+                    majorMaxPixels
+                ) :
+                ScreenFade(
+                    screenSpacingLineZ,
+                    minorMinPixels,
+                    minorMaxPixels
+                );
+
             float colorAtClosest[3] = {};
             BlendColor(
-                fadeAtClosest,
+                fadeAtClosest * screenFadeZ,
                 opacity,
                 projectSettings.backgroundColor,
                 gridColor,
@@ -287,7 +382,7 @@ namespace CNode
                 );
 
                 const float fadeAtStart =
-                    SmoothFade(distanceAtStart, radius);
+                    SmoothFade(distanceAtStart, radius) * screenFadeZ;
 
                 float colorAtStart[3] = {};
                 BlendColor(
@@ -318,7 +413,7 @@ namespace CNode
                 );
 
                 const float fadeAtEnd =
-                    SmoothFade(distanceAtEnd, radius);
+                    SmoothFade(distanceAtEnd, radius) * screenFadeZ;
 
                 float colorAtEnd[3] = {};
                 BlendColor(

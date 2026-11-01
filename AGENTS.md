@@ -45,6 +45,10 @@ CNode is a C++20 node-based game engine (GLFW + Dear ImGui + OpenGL). Single exe
 ## Grid rendering (easy to regress)
 
 - `src/tab/windows/scene_editor/scene_grid.cpp` builds the XZ world-space grid.
-- Both X-direction and Z-direction line families must always be rendered; do **not** scale either family's opacity by camera direction (e.g. `abs(viewDirX)` / `abs(viewDirZ)`). The previous camera-angle-dependent scaling caused one family to disappear when looking along an axis — see the removed `xFamilyScale`/`zFamilyScale` multipliers.
-- Fade is purely distance-based via `SmoothFade(distance, radius)`.
+- Both X-direction and Z-direction line families must always be rendered; do **not** scale either family's opacity by camera direction (e.g. `abs(viewDirX)` / `abs(viewDirZ)`). That caused one family to disappear when looking along an axis.
+- **Adaptive screen-space LOD**: a `ScreenFade()` multiplier fades minor grid lines whose projected screen-space spacing falls below ~2–5 px, and major lines below ~1–3 px. This prevents moiré and dense line merging near the horizon without camera-direction conditions.
+- Depth per line is estimated via dot product with the normalized camera view direction; screen spacing = `spacing * viewportScale / (tan(FOV/2) * depth)`.
+- Fade is combined multiplicatively: `combinedFade = SmoothFade(worldDistance, radius) * ScreenFade(screenSpacing)`.
+- Major lines use lower pixel thresholds so they remain visible longer than minor lines.
 - Grid lines are world-space aligned; camera movement/rotation only changes projection via `uViewProjection`.
+- Rendered with `GL_LINE_SMOOTH` + `GL_SRC_ALPHA`/`GL_ONE_MINUS_SRC_ALPHA` blending (1.0 px minor, 2.0 px major).
