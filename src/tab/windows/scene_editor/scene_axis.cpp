@@ -23,37 +23,37 @@ namespace CNode
         const float axisLength =
             std::max(1000.0f, distance * 4.0f);
 
-        // X axis: merah
+        // X axis: red
         vertices.push_back({
             { -axisLength, 0.0f, 0.0f },
-            { 0.85f, 0.20f, 0.20f }
+            { 1.0f, 0.0f, 0.0f }
             });
 
         vertices.push_back({
             { axisLength, 0.0f, 0.0f },
-            { 0.85f, 0.20f, 0.20f }
+            { 1.0f, 0.0f, 0.0f }
             });
 
-        // Y axis: hijau (vertikal)
+        // Y axis: green (vertical)
         vertices.push_back({
             { 0.0f, -axisLength, 0.0f },
-            { 0.20f, 0.85f, 0.30f }
+            { 0.0f, 1.0f, 0.0f }
             });
 
         vertices.push_back({
             { 0.0f, axisLength, 0.0f },
-            { 0.20f, 0.85f, 0.30f }
+            { 0.0f, 1.0f, 0.0f }
             });
 
-        // Z axis: biru
+        // Z axis: blue
         vertices.push_back({
             { 0.0f, 0.0f, -axisLength },
-            { 0.20f, 0.40f, 0.90f }
+            { 0.0f, 0.0f, 1.0f }
             });
 
         vertices.push_back({
             { 0.0f, 0.0f, axisLength },
-            { 0.20f, 0.40f, 0.90f }
+            { 0.0f, 0.0f, 1.0f }
             });
 
         return vertices;

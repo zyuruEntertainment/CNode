@@ -373,17 +373,58 @@ namespace CNode
             uniform float uGridRenderDistance;
             uniform vec3 uBackgroundColor;
 
+            // Global (camera-derived) grid spacings. These are constant for
+            // every fragment, which prevents the concentric LOD rings caused
+            // by per-fragment distance-based spacing.
+            uniform float uGridSpacing0;
+            uniform float uGridSpacing1;
+            uniform float uGridBlend;
+
+            // Returns minor coverage in the return value and major coverage
+            // through the out parameter, for a single grid spacing.
+            float gridCoverage(float x, float z, float spacing, out float majorCov)
+            {
+                float gx = x / spacing;
+                float gz = z / spacing;
+
+                float fx = fract(gx);
+                float fz = fract(gz);
+                float dx = min(fx, 1.0 - fx);
+                float dz = min(fz, 1.0 - fz);
+
+                float aax = fwidth(gx);
+                float aaz = fwidth(gz);
+
+                float cx = 1.0 - smoothstep(0.0, 1.0, dx / max(aax, 1e-5));
+                float cz = 1.0 - smoothstep(0.0, 1.0, dz / max(aaz, 1e-5));
+                float minor = max(cx, cz);
+
+                float mgx = x / (spacing * 10.0);
+                float mgz = z / (spacing * 10.0);
+
+                float mfx = fract(mgx);
+                float mfz = fract(mgz);
+                float mdx = min(mfx, 1.0 - mfx);
+                float mdz = min(mfz, 1.0 - mfz);
+
+                float maax = fwidth(mgx);
+                float maaz = fwidth(mgz);
+
+                float mcx = 1.0 - smoothstep(0.0, 1.0, mdx / max(maax, 1e-5));
+                float mcz = 1.0 - smoothstep(0.0, 1.0, mdz / max(maaz, 1e-5));
+                majorCov = max(mcx, mcz);
+
+                return minor;
+            }
+
             void main()
             {
-                // Build the view ray for this fragment from the camera
-                // basis and NDC coordinates.
                 vec3 rayDir =
                     uCameraForward +
                     vNDC.x * uTanHalfFovX * uCameraRight +
                     vNDC.y * uTanHalfFovY * uCameraUp;
                 rayDir = normalize(rayDir);
 
-                // Ray-plane intersection with the XZ ground plane (Y = 0).
                 if (abs(rayDir.y) < 0.0001)
                 {
                     FragColor = vec4(uBackgroundColor, 1.0);
@@ -403,92 +444,36 @@ namespace CNode
                 float x = groundPos.x;
                 float z = groundPos.z;
 
-                // Distance-based power-of-two LOD. Spacing grows as the
-                // camera moves away, keeping line density visually stable
-                // and preventing dense horizon bands.
-                float logDist = log2(max(dist, 0.1));
-                float scale = floor(logDist * 0.5);
-                float spacing = pow(2.0, scale);
-                spacing = clamp(spacing, 0.25, 256.0);
+                float major0 = 0.0;
+                float major1 = 0.0;
+                float minor0 = gridCoverage(x, z, uGridSpacing0, major0);
+                float minor1 = gridCoverage(x, z, uGridSpacing1, major1);
 
-                // Grid pattern on the XZ plane.
-                float gridX = x / spacing;
-                float gridZ = z / spacing;
+                float minorGrid = mix(minor0, minor1, uGridBlend);
+                float majorGrid = mix(major0, major1, uGridBlend);
 
-                float linePosX = fract(gridX);
-                float linePosZ = fract(gridZ);
+                minorGrid = clamp(minorGrid, 0.0, 1.0);
+                majorGrid = clamp(majorGrid, 0.0, 1.0);
 
-                float distToLineX = min(linePosX, 1.0 - linePosX);
-                float distToLineZ = min(linePosZ, 1.0 - linePosZ);
-
-                // fwidth-based anti-aliasing: screen-space rate of change
-                // of the grid pattern sets the line thickness.
-                float aaX = fwidth(gridX);
-                float aaZ = fwidth(gridZ);
-
-                float coverageX =
-                    1.0 - smoothstep(0.0, aaX * 2.0 + 0.02, distToLineX);
-                float coverageZ =
-                    1.0 - smoothstep(0.0, aaZ * 2.0 + 0.02, distToLineZ);
-
-                float minorGrid = max(coverageX, coverageZ);
-
-                // Major lines: every 10th subdivision, emphasized.
-                float majorSpacing = spacing * 10.0;
-                float majorGridX = x / majorSpacing;
-                float majorGridZ = z / majorSpacing;
-
-                float majorLinePosX = fract(majorGridX);
-                float majorLinePosZ = fract(majorGridZ);
-
-                float distToMajorX = min(majorLinePosX, 1.0 - majorLinePosX);
-                float distToMajorZ = min(majorLinePosZ, 1.0 - majorLinePosZ);
-
-                float majorAAX = fwidth(majorGridX);
-                float majorAAZ = fwidth(majorGridZ);
-
-                float majorCoverageX =
-                    1.0 - smoothstep(0.0, majorAAX * 2.0 + 0.02, distToMajorX);
-                float majorCoverageZ =
-                    1.0 - smoothstep(0.0, majorAAZ * 2.0 + 0.02, distToMajorZ);
-
-                float majorGrid = max(majorCoverageX, majorCoverageZ);
-
-                // Combine: major lines are brighter and take precedence.
-                float grid = max(minorGrid, majorGrid * 1.6);
-                grid = clamp(grid, 0.0, 1.0);
-
-                // Distance fading: near grid is clear, far grid fades into
-                // the background smoothly.
                 float distFade =
-                    smoothstep(
-                        uGridRenderDistance * 0.55,
+                    1.0 - smoothstep(
+                        uGridRenderDistance * 0.5,
                         uGridRenderDistance,
                         dist
                     );
-                distFade = 1.0 - distFade;
 
-                // Horizon / grazing fade: lines compress near the horizon,
-                // so fade them based on how parallel the view ray is to the
-                // ground plane.
                 float horizonFade =
-                    smoothstep(0.0, 0.15, abs(rayDir.y));
+                    smoothstep(0.0, 0.2, abs(rayDir.y));
 
-                float gridAlpha =
-                    grid * distFade * horizonFade * uGridOpacity;
+                vec3 gridColor = uBackgroundColor;
 
-                vec3 gridColor =
-                    mix(uBackgroundColor, vec3(0.18, 0.20, 0.25), gridAlpha);
+                float minorAlpha =
+                    minorGrid * distFade * horizonFade * uGridOpacity;
+                gridColor = mix(gridColor, vec3(0.18, 0.20, 0.25), minorAlpha);
 
-                // Major lines are slightly brighter.
-                if (majorGrid > 0.0)
-                {
-                    gridColor = mix(
-                        gridColor,
-                        vec3(0.35, 0.38, 0.45),
-                        majorGrid * distFade * horizonFade * uGridOpacity
-                    );
-                }
+                float majorAlpha =
+                    majorGrid * distFade * horizonFade * uGridOpacity;
+                gridColor = mix(gridColor, vec3(0.30, 0.33, 0.40), majorAlpha);
 
                 FragColor = vec4(gridColor, 1.0);
             }
@@ -819,9 +804,9 @@ namespace CNode
                 fz = dz / forwardLen;
             }
 
-            float rx = camera.up[1] * fz - camera.up[2] * fy;
-            float ry = camera.up[2] * fx - camera.up[0] * fz;
-            float rz = camera.up[0] * fy - camera.up[1] * fx;
+            float rx = camera.up[2] * fy - camera.up[1] * fz;
+            float ry = camera.up[0] * fz - camera.up[2] * fx;
+            float rz = camera.up[1] * fx - camera.up[0] * fy;
             float rightLen = std::sqrt(rx * rx + ry * ry + rz * rz);
             if (rightLen > 0.0001f)
             {
@@ -840,6 +825,32 @@ namespace CNode
             float tanHalfFovX =
                 tanHalfFovY *
                 (static_cast<float>(width) / static_cast<float>(height));
+
+            // Global grid spacing derived from the camera's view scale.
+            // Constant for all fragments to avoid concentric LOD rings.
+            float cdx = camera.target[0] - camera.position[0];
+            float cdy = camera.target[1] - camera.position[1];
+            float cdz = camera.target[2] - camera.position[2];
+            float camDist = std::sqrt(cdx * cdx + cdy * cdy + cdz * cdz);
+            if (camDist < 0.001f)
+                camDist = 1.0f;
+
+            float viewSize = camDist * tanHalfFovY * 2.0f;
+            if (viewSize < 0.001f)
+                viewSize = 1.0f;
+
+            float desiredSpacing = viewSize / 20.0f;
+            if (desiredSpacing < 0.01f)
+                desiredSpacing = 0.01f;
+
+            float log2Spacing = std::log2(desiredSpacing);
+            float spacingFloor = std::floor(log2Spacing);
+            float spacing0 = std::pow(2.0f, spacingFloor);
+            float spacing1 = spacing0 * 2.0f;
+            float spacingBlend = log2Spacing - spacingFloor;
+
+            spacing0 = std::clamp(spacing0, 0.01f, 256.0f);
+            spacing1 = std::clamp(spacing1, 0.01f, 256.0f);
 
             glUseProgram(gridShaderProgram);
 
@@ -874,6 +885,18 @@ namespace CNode
             glUniform1f(
                 glGetUniformLocation(gridShaderProgram, "uGridRenderDistance"),
                 projectSettings.gridRenderDistance
+            );
+            glUniform1f(
+                glGetUniformLocation(gridShaderProgram, "uGridSpacing0"),
+                spacing0
+            );
+            glUniform1f(
+                glGetUniformLocation(gridShaderProgram, "uGridSpacing1"),
+                spacing1
+            );
+            glUniform1f(
+                glGetUniformLocation(gridShaderProgram, "uGridBlend"),
+                spacingBlend
             );
             glUniform3f(
                 glGetUniformLocation(gridShaderProgram, "uBackgroundColor"),
@@ -911,10 +934,18 @@ namespace CNode
             viewProjection
         );
 
-        if (projectSettings.showAxis && axisVertexArray != 0)
+        if (projectSettings.showAxis)
         {
-            glBindVertexArray(axisVertexArray);
-            glDrawArrays(GL_LINES, 0, axisVertexCount);
+            if (axisVertexArray == 0)
+                CreateAxis(camera);
+            else
+                UpdateAxis(camera);
+
+            if (axisVertexArray != 0)
+            {
+                glBindVertexArray(axisVertexArray);
+                glDrawArrays(GL_LINES, 0, axisVertexCount);
+            }
         }
 
         glUseProgram(cubeShaderProgram);

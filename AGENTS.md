@@ -49,9 +49,16 @@ CNode is a C++20 node-based game engine (GLFW + Dear ImGui + OpenGL). Single exe
 - Grid lines are computed in world space using `fract(x/spacing)` and `fract(z/spacing)`, with `fwidth()`-based anti-aliasing for stable line coverage at grazing angles.
 - **Adaptive LOD**: spacing is distance-based power-of-two (`spacing = pow(2, floor(log2(dist) * 0.5))`), clamped to [0.25, 256]. This keeps visual line density stable and prevents dense horizon bands without camera-direction conditions.
 - Major lines every 10th subdivision are brighter; they remain visible longer than minor lines.
-- Distance fading: `smoothstep(renderDistance * 0.55, renderDistance, dist)`, inverted so near = clear, far = background.
-- Horizon/grazing fade: `smoothstep(0.0, 0.15, abs(rayDir.y))` prevents compressed lines near the horizon.
+- Distance fading: `smoothstep(renderDistance * 0.5, renderDistance, dist)`, inverted so near = clear, far = background.
+- Horizon/grazing fade: `smoothstep(0.0, 0.2, abs(rayDir.y))` prevents compressed lines near the horizon.
+- Line edge width: `fwidth(grid) * 0.5 + 0.01` for thin crisp minor lines; same formula for major lines.
+- Grid combine: `max(minorGrid, majorGrid)` (no `* 1.6` multiplier — avoids glowing bands). Major lines use a single mix with brighter color `{0.30, 0.33, 0.40}` — no double blending.
 - Both X and Z grid families are always rendered — camera azimuth never disables either family. This is a regression guard from the earlier camera-direction-scaling bug.
 - Grid is drawn first with depth write disabled, so axes and cubes occlude it correctly.
 - Rendered with `GL_SRC_ALPHA`/`GL_ONE_MINUS_SRC_ALPHA` blending (no `GL_LINE_SMOOTH` — the shader handles anti-aliasing analytically).
-- Grid color: minor {0.18, 0.20, 0.25}, major {0.35, 0.38, 0.45}, blended against background {0.075, 0.085, 0.10}.
+- Grid color: minor {0.18, 0.20, 0.25}, major {0.30, 0.33, 0.40}, blended against background {0.075, 0.085, 0.10}.
+
+## Camera navigation (regression guard)
+
+- The grid shader computes camera basis vectors (`right`, `up`, `forward`) locally for ray construction. The right vector **must** be computed as `forward × up` (cross(forward, up)), matching `pan_navigation.cpp` and the view matrix `LookAt()`. Using `up × forward` mirrors the grid horizontally and makes navigation feel inverted.
+- The grid shader's basis computation does **not** modify the camera object — navigation code in `navigation/` is completely separate.
