@@ -36,8 +36,15 @@ CNode is a C++20 node-based game engine (GLFW + Dear ImGui + OpenGL). Single exe
 - `include/registration/default_layout.h` declares `SetupDefaultDockLayout()`.
 - The layout is applied only once: a marker file `.cnode_default_layout_v1` is written after the first apply. On later launches Dear ImGui restores the user's last layout from `imgui.ini` (auto-saved by `io.IniFilename = "imgui.ini"`).
 - To reset to the default layout, delete `.cnode_default_layout_v1` (and `imgui.ini` if you want a fully clean slate).
-- Current default: Scene Editor (top-left ~65%), Object List + Inspector (top-right ~35%, tabbed), Node Graph (bottom ~35% full width).
+- Current default: Left column (~60% width): Scene Editor (top ~65%) above Node Graph (bottom ~35%). Right column (~40% width): Object List (left ~50%) beside Inspector (right ~50%), separate panels — not tabbed.
 
 ## Verification
 
 - No tests exist. Verify by building and running `build/CNode.exe` (VS debugger working directory is the source root).
+
+## Grid rendering (easy to regress)
+
+- `src/tab/windows/scene_editor/scene_grid.cpp` builds the XZ world-space grid.
+- Both X-direction and Z-direction line families must always be rendered; do **not** scale either family's opacity by camera direction (e.g. `abs(viewDirX)` / `abs(viewDirZ)`). The previous camera-angle-dependent scaling caused one family to disappear when looking along an axis — see the removed `xFamilyScale`/`zFamilyScale` multipliers.
+- Fade is purely distance-based via `SmoothFade(distance, radius)`.
+- Grid lines are world-space aligned; camera movement/rotation only changes projection via `uViewProjection`.

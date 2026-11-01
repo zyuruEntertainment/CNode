@@ -100,28 +100,6 @@ namespace CNode
 
         spacing = std::clamp(spacing, 1.0f, 100.0f);
 
-        float viewDirX = targetX - cameraX;
-        float viewDirZ = targetZ - cameraZ;
-        const float viewDirLength = std::sqrt(
-            viewDirX * viewDirX + viewDirZ * viewDirZ
-        );
-
-        if (viewDirLength > 0.0001f)
-        {
-            viewDirX /= viewDirLength;
-            viewDirZ /= viewDirLength;
-        }
-        else
-        {
-            viewDirX = 0.0f;
-            viewDirZ = 1.0f;
-        }
-
-        // Reduce the family of lines that becomes visually stacked
-        // when the camera looks close to that axis.
-        const float xFamilyScale = std::abs(viewDirZ);
-        const float zFamilyScale = std::abs(viewDirX);
-
         const ProjectSettings& projectSettings =
             GetProjectSettings();
 
@@ -175,8 +153,7 @@ namespace CNode
                 major ? result.major : result.minor;
 
             const float fadeAtClosest =
-                SmoothFade(std::fabs(deltaX), radius) *
-                xFamilyScale;
+                SmoothFade(std::fabs(deltaX), radius);
 
             float colorAtClosest[3] = {};
             BlendColor(
@@ -195,8 +172,7 @@ namespace CNode
                 );
 
                 const float fadeAtStart =
-                    SmoothFade(distanceAtStart, radius) *
-                    xFamilyScale;
+                    SmoothFade(distanceAtStart, radius);
 
                 float colorAtStart[3] = {};
                 BlendColor(
@@ -227,8 +203,7 @@ namespace CNode
                 );
 
                 const float fadeAtEnd =
-                    SmoothFade(distanceAtEnd, radius) *
-                    xFamilyScale;
+                    SmoothFade(distanceAtEnd, radius);
 
                 float colorAtEnd[3] = {};
                 BlendColor(
@@ -293,8 +268,7 @@ namespace CNode
                 major ? result.major : result.minor;
 
             const float fadeAtClosest =
-                SmoothFade(std::fabs(deltaZ), radius) *
-                zFamilyScale;
+                SmoothFade(std::fabs(deltaZ), radius);
 
             float colorAtClosest[3] = {};
             BlendColor(
@@ -313,8 +287,7 @@ namespace CNode
                 );
 
                 const float fadeAtStart =
-                    SmoothFade(distanceAtStart, radius) *
-                    zFamilyScale;
+                    SmoothFade(distanceAtStart, radius);
 
                 float colorAtStart[3] = {};
                 BlendColor(
@@ -345,8 +318,7 @@ namespace CNode
                 );
 
                 const float fadeAtEnd =
-                    SmoothFade(distanceAtEnd, radius) *
-                    zFamilyScale;
+                    SmoothFade(distanceAtEnd, radius);
 
                 float colorAtEnd[3] = {};
                 BlendColor(

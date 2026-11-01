@@ -76,34 +76,44 @@ namespace CNode
                 viewport->WorkSize
             );
 
-            // Pisahkan dockspace menjadi dua bagian secara vertikal:
-            // bagian bawah (~35%) untuk Node Graph, bagian atas (~65%) untuk sisa window.
-            ImGuiID dockID_bottom, dockID_top;
-            ImGui::DockBuilderSplitNode(
-                dockspaceID,
-                ImGuiDir_Down,
-                0.35f,
-                &dockID_bottom,
-                &dockID_top
-            );
-
-            // Pisahkan bagian atas menjadi dua bagian secara horizontal:
-            // bagian kiri (~65%) untuk Scene Editor, bagian kanan (~35%)
-            // untuk Object List dan Inspector (akan ditabung dalam satu tab).
+            // Pecah dockspace utama menjadi kolom kiri (~60% lebar)
+            // dan kolom kanan (~40% lebar).
             ImGuiID dockID_left, dockID_right;
             ImGui::DockBuilderSplitNode(
-                dockID_top,
+                dockspaceID,
                 ImGuiDir_Right,
-                0.35f,
+                0.40f,
                 &dockID_right,
                 &dockID_left
             );
 
-            // Pasang window ke masing-masing dock area.
-            DockWindow("scene_editor", dockID_left);
-            DockWindow("object_list", dockID_right);
-            DockWindow("inspector", dockID_right);
-            DockWindow("node_graph", dockID_bottom);
+            // Pecah kolom kiri secara vertikal: Scene Editor di atas (~65% tinggi),
+            // Node Graph di bawah (~35% tinggi).
+            ImGuiID dockID_scene_editor, dockID_node_graph;
+            ImGui::DockBuilderSplitNode(
+                dockID_left,
+                ImGuiDir_Down,
+                0.35f,
+                &dockID_node_graph,
+                &dockID_scene_editor
+            );
+
+            // Pecah kolom kanan secara horizontal: Object List di kiri (~50% lebar kolom),
+            // Inspector di kanan (~50% lebar kolom). Keduanya berdampingan, bukan dalam satu tab.
+            ImGuiID dockID_object_list, dockID_inspector;
+            ImGui::DockBuilderSplitNode(
+                dockID_right,
+                ImGuiDir_Right,
+                0.50f,
+                &dockID_inspector,
+                &dockID_object_list
+            );
+
+            // Pasang masing-masing window ke dock area-nya sendiri.
+            DockWindow("scene_editor", dockID_scene_editor);
+            DockWindow("node_graph", dockID_node_graph);
+            DockWindow("object_list", dockID_object_list);
+            DockWindow("inspector", dockID_inspector);
 
             ImGui::DockBuilderFinish(dockspaceID);
         }
