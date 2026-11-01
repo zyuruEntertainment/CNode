@@ -24,17 +24,8 @@ namespace CNode
         bool CreateShader();
         bool CreateCubeShader();
         bool CreateCube();
-        bool CreateGrid(
-            const SceneCamera& camera,
-            int width,
-            int height
-        );
+        bool CreateGridShader();
         bool CreateAxis(const SceneCamera& camera);
-        bool UpdateGrid(
-            const SceneCamera& camera,
-            int width,
-            int height
-        );
         bool UpdateAxis(const SceneCamera& camera);
         bool CreateLineBuffer(
             const void* data,
@@ -52,18 +43,15 @@ namespace CNode
         unsigned int shaderProgram = 0;
         unsigned int cubeShaderProgram = 0;
 
+        unsigned int gridShaderProgram = 0;
+
         unsigned int cubeVertexArray = 0;
         unsigned int cubeVertexBuffer = 0;
         unsigned int cubeIndexBuffer = 0;
         int cubeIndexCount = 0;
 
-        unsigned int gridVertexArray = 0;
-        unsigned int gridVertexBuffer = 0;
-        int gridVertexCount = 0;
-
-        unsigned int gridMajorVertexArray = 0;
-        unsigned int gridMajorVertexBuffer = 0;
-        int gridMajorVertexCount = 0;
+        unsigned int gridVAO = 0;
+        unsigned int gridVBO = 0;
 
         unsigned int axisVertexArray = 0;
         unsigned int axisVertexBuffer = 0;

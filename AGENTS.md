@@ -44,11 +44,14 @@ CNode is a C++20 node-based game engine (GLFW + Dear ImGui + OpenGL). Single exe
 
 ## Grid rendering (easy to regress)
 
-- `src/tab/windows/scene_editor/scene_grid.cpp` builds the XZ world-space grid.
-- Both X-direction and Z-direction line families must always be rendered; do **not** scale either family's opacity by camera direction (e.g. `abs(viewDirX)` / `abs(viewDirZ)`). That caused one family to disappear when looking along an axis.
-- **Adaptive screen-space LOD**: a `ScreenFade()` multiplier fades minor grid lines whose projected screen-space spacing falls below ~2–5 px, and major lines below ~1–3 px. This prevents moiré and dense line merging near the horizon without camera-direction conditions.
-- Depth per line is estimated via dot product with the normalized camera view direction; screen spacing = `spacing * viewportScale / (tan(FOV/2) * depth)`.
-- Fade is combined multiplicatively: `combinedFade = SmoothFade(worldDistance, radius) * ScreenFade(screenSpacing)`.
-- Major lines use lower pixel thresholds so they remain visible longer than minor lines.
-- Grid lines are world-space aligned; camera movement/rotation only changes projection via `uViewProjection`.
-- Rendered with `GL_LINE_SMOOTH` + `GL_SRC_ALPHA`/`GL_ONE_MINUS_SRC_ALPHA` blending (1.0 px minor, 2.0 px major).
+- `src/tab/windows/scene_editor/scene_renderer.cpp` renders the grid with a procedural fragment shader (`CreateGridShader()`), replacing the old CPU line-generation approach (`scene_grid.cpp` is now a stub).
+- The shader draws a full-screen quad and computes a ray-plane intersection with the XZ ground plane (Y=0) per fragment. No depth texture is needed — the world position is derived analytically from the camera basis and NDC.
+- Grid lines are computed in world space using `fract(x/spacing)` and `fract(z/spacing)`, with `fwidth()`-based anti-aliasing for stable line coverage at grazing angles.
+- **Adaptive LOD**: spacing is distance-based power-of-two (`spacing = pow(2, floor(log2(dist) * 0.5))`), clamped to [0.25, 256]. This keeps visual line density stable and prevents dense horizon bands without camera-direction conditions.
+- Major lines every 10th subdivision are brighter; they remain visible longer than minor lines.
+- Distance fading: `smoothstep(renderDistance * 0.55, renderDistance, dist)`, inverted so near = clear, far = background.
+- Horizon/grazing fade: `smoothstep(0.0, 0.15, abs(rayDir.y))` prevents compressed lines near the horizon.
+- Both X and Z grid families are always rendered — camera azimuth never disables either family. This is a regression guard from the earlier camera-direction-scaling bug.
+- Grid is drawn first with depth write disabled, so axes and cubes occlude it correctly.
+- Rendered with `GL_SRC_ALPHA`/`GL_ONE_MINUS_SRC_ALPHA` blending (no `GL_LINE_SMOOTH` — the shader handles anti-aliasing analytically).
+- Grid color: minor {0.18, 0.20, 0.25}, major {0.35, 0.38, 0.45}, blended against background {0.075, 0.085, 0.10}.

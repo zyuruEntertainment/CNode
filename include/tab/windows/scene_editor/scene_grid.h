@@ -1,9 +1,5 @@
 #pragma once
 
-#include "tab/windows/scene_editor/scene_camera.h"
-
-#include <vector>
-
 namespace CNode
 {
     struct SceneLineVertex
@@ -12,15 +8,10 @@ namespace CNode
         float color[3];
     };
 
-    struct SceneGridVertices
+    struct GridSettings
     {
-        std::vector<SceneLineVertex> minor;
-        std::vector<SceneLineVertex> major;
+        bool showGrid = true;
+        float opacity = 0.75f;
+        float renderDistance = 400.0f;
     };
-
-    SceneGridVertices BuildSceneGridVertices(
-        const SceneCamera& camera,
-        int viewportWidth,
-        int viewportHeight
-    );
 }

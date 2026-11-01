@@ -1,5 +1,4 @@
 #include "tab/windows/scene_editor/scene_renderer.h"
-#include "tab/windows/scene_editor/scene_grid.h"
 #include "tab/windows/scene_editor/scene_axis.h"
 #include "tab/windows/project_setting/project_setting_data.h"
 #include "scene/scene.h"
@@ -60,7 +59,8 @@ namespace CNode
 
         if (!CreateShader() ||
             !CreateCubeShader() ||
-            !CreateCube())
+            !CreateCube() ||
+            !CreateGridShader())
         {
             Shutdown();
             return false;
@@ -341,78 +341,224 @@ namespace CNode
         return true;
     }
 
-    bool SceneRenderer::CreateGrid(
-        const SceneCamera& camera,
-        int width,
-        int height)
+    bool SceneRenderer::CreateGridShader()
     {
-        const auto vertices = BuildSceneGridVertices(
-            camera, width, height
-        );
+        const char* vertexSource = R"(
+            #version 330 core
 
-        gridVertexCount = static_cast<int>(vertices.minor.size());
-        gridMajorVertexCount =
-            static_cast<int>(vertices.major.size());
+            layout (location = 0) in vec2 aPosition;
 
-        const bool minorOk = CreateLineBuffer(
-            vertices.minor.data(),
-            gridVertexCount,
-            gridVertexArray,
-            gridVertexBuffer,
-            0x88E8
-        );
+            out vec2 vNDC;
 
-        const bool majorOk = CreateLineBuffer(
-            vertices.major.data(),
-            gridMajorVertexCount,
-            gridMajorVertexArray,
-            gridMajorVertexBuffer,
-            0x88E8
-        );
+            void main()
+            {
+                gl_Position = vec4(aPosition, 0.0, 1.0);
+                vNDC = aPosition;
+            }
+        )";
 
-        return minorOk && majorOk;
-    }
+        const char* fragmentSource = R"(
+            #version 330 core
 
-    bool SceneRenderer::UpdateGrid(
-        const SceneCamera& camera,
-        int width,
-        int height)
-    {
-        const auto vertices = BuildSceneGridVertices(
-            camera, width, height
-        );
+            in vec2 vNDC;
+            out vec4 FragColor;
 
-        gridVertexCount = static_cast<int>(vertices.minor.size());
-        gridMajorVertexCount =
-            static_cast<int>(vertices.major.size());
+            uniform vec3 uCameraPos;
+            uniform vec3 uCameraRight;
+            uniform vec3 uCameraUp;
+            uniform vec3 uCameraForward;
+            uniform float uTanHalfFovX;
+            uniform float uTanHalfFovY;
+            uniform float uGridOpacity;
+            uniform float uGridRenderDistance;
+            uniform vec3 uBackgroundColor;
 
-        if (gridVertexCount > 0)
+            void main()
+            {
+                // Build the view ray for this fragment from the camera
+                // basis and NDC coordinates.
+                vec3 rayDir =
+                    uCameraForward +
+                    vNDC.x * uTanHalfFovX * uCameraRight +
+                    vNDC.y * uTanHalfFovY * uCameraUp;
+                rayDir = normalize(rayDir);
+
+                // Ray-plane intersection with the XZ ground plane (Y = 0).
+                if (abs(rayDir.y) < 0.0001)
+                {
+                    FragColor = vec4(uBackgroundColor, 1.0);
+                    return;
+                }
+
+                float t = -uCameraPos.y / rayDir.y;
+                if (t < 0.0 || t > uGridRenderDistance)
+                {
+                    FragColor = vec4(uBackgroundColor, 1.0);
+                    return;
+                }
+
+                vec3 groundPos = uCameraPos + t * rayDir;
+                float dist = t;
+
+                float x = groundPos.x;
+                float z = groundPos.z;
+
+                // Distance-based power-of-two LOD. Spacing grows as the
+                // camera moves away, keeping line density visually stable
+                // and preventing dense horizon bands.
+                float logDist = log2(max(dist, 0.1));
+                float scale = floor(logDist * 0.5);
+                float spacing = pow(2.0, scale);
+                spacing = clamp(spacing, 0.25, 256.0);
+
+                // Grid pattern on the XZ plane.
+                float gridX = x / spacing;
+                float gridZ = z / spacing;
+
+                float linePosX = fract(gridX);
+                float linePosZ = fract(gridZ);
+
+                float distToLineX = min(linePosX, 1.0 - linePosX);
+                float distToLineZ = min(linePosZ, 1.0 - linePosZ);
+
+                // fwidth-based anti-aliasing: screen-space rate of change
+                // of the grid pattern sets the line thickness.
+                float aaX = fwidth(gridX);
+                float aaZ = fwidth(gridZ);
+
+                float coverageX =
+                    1.0 - smoothstep(0.0, aaX * 2.0 + 0.02, distToLineX);
+                float coverageZ =
+                    1.0 - smoothstep(0.0, aaZ * 2.0 + 0.02, distToLineZ);
+
+                float minorGrid = max(coverageX, coverageZ);
+
+                // Major lines: every 10th subdivision, emphasized.
+                float majorSpacing = spacing * 10.0;
+                float majorGridX = x / majorSpacing;
+                float majorGridZ = z / majorSpacing;
+
+                float majorLinePosX = fract(majorGridX);
+                float majorLinePosZ = fract(majorGridZ);
+
+                float distToMajorX = min(majorLinePosX, 1.0 - majorLinePosX);
+                float distToMajorZ = min(majorLinePosZ, 1.0 - majorLinePosZ);
+
+                float majorAAX = fwidth(majorGridX);
+                float majorAAZ = fwidth(majorGridZ);
+
+                float majorCoverageX =
+                    1.0 - smoothstep(0.0, majorAAX * 2.0 + 0.02, distToMajorX);
+                float majorCoverageZ =
+                    1.0 - smoothstep(0.0, majorAAZ * 2.0 + 0.02, distToMajorZ);
+
+                float majorGrid = max(majorCoverageX, majorCoverageZ);
+
+                // Combine: major lines are brighter and take precedence.
+                float grid = max(minorGrid, majorGrid * 1.6);
+                grid = clamp(grid, 0.0, 1.0);
+
+                // Distance fading: near grid is clear, far grid fades into
+                // the background smoothly.
+                float distFade =
+                    smoothstep(
+                        uGridRenderDistance * 0.55,
+                        uGridRenderDistance,
+                        dist
+                    );
+                distFade = 1.0 - distFade;
+
+                // Horizon / grazing fade: lines compress near the horizon,
+                // so fade them based on how parallel the view ray is to the
+                // ground plane.
+                float horizonFade =
+                    smoothstep(0.0, 0.15, abs(rayDir.y));
+
+                float gridAlpha =
+                    grid * distFade * horizonFade * uGridOpacity;
+
+                vec3 gridColor =
+                    mix(uBackgroundColor, vec3(0.18, 0.20, 0.25), gridAlpha);
+
+                // Major lines are slightly brighter.
+                if (majorGrid > 0.0)
+                {
+                    gridColor = mix(
+                        gridColor,
+                        vec3(0.35, 0.38, 0.45),
+                        majorGrid * distFade * horizonFade * uGridOpacity
+                    );
+                }
+
+                FragColor = vec4(gridColor, 1.0);
+            }
+        )";
+
+        const unsigned int vertexShader =
+            CompileShader(GL_VERTEX_SHADER, vertexSource);
+        if (!vertexShader)
+            return false;
+
+        const unsigned int fragmentShader =
+            CompileShader(GL_FRAGMENT_SHADER, fragmentSource);
+        if (!fragmentShader)
         {
-            glBindBuffer(GL_ARRAY_BUFFER, gridVertexBuffer);
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                static_cast<GLsizeiptr>(
-                    vertices.minor.size() *
-                    sizeof(SceneLineVertex)
-                ),
-                vertices.minor.data(),
-                0x88E8
-            );
+            glDeleteShader(vertexShader);
+            return false;
         }
 
-        if (gridMajorVertexCount > 0)
+        gridShaderProgram = glCreateProgram();
+        glAttachShader(gridShaderProgram, vertexShader);
+        glAttachShader(gridShaderProgram, fragmentShader);
+        glDeleteShader(vertexShader);
+        glDeleteShader(fragmentShader);
+
+        glLinkProgram(gridShaderProgram);
+
+        int success = 0;
+        glGetProgramiv(gridShaderProgram, GL_LINK_STATUS, &success);
+        if (!success)
         {
-            glBindBuffer(GL_ARRAY_BUFFER, gridMajorVertexBuffer);
-            glBufferData(
-                GL_ARRAY_BUFFER,
-                static_cast<GLsizeiptr>(
-                    vertices.major.size() *
-                    sizeof(SceneLineVertex)
-                ),
-                vertices.major.data(),
-                0x88E8
-            );
+            char log[1024] = {};
+            glGetProgramInfoLog(gridShaderProgram, sizeof(log), nullptr, log);
+            std::cerr
+                << "CNode: Grid shader linking failed: " << log << '\n';
+            glDeleteProgram(gridShaderProgram);
+            gridShaderProgram = 0;
+            return false;
         }
+
+        // Full-screen quad covering the viewport.
+        const float quadVertices[] = {
+            -1.0f, -1.0f,
+             1.0f, -1.0f,
+            -1.0f,  1.0f,
+             1.0f,  1.0f
+        };
+
+        glGenVertexArrays(1, &gridVAO);
+        glGenBuffers(1, &gridVBO);
+
+        if (!gridVAO || !gridVBO)
+            return false;
+
+        glBindVertexArray(gridVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            sizeof(quadVertices),
+            quadVertices,
+            GL_STATIC_DRAW
+        );
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(
+            0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float),
+            reinterpret_cast<void*>(0)
+        );
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
 
         return true;
     }
@@ -660,28 +806,95 @@ namespace CNode
 
         if (GetProjectSettings().showGrid)
         {
-            if (gridVertexArray == 0)
+            // Compute camera basis vectors for view-ray construction.
+            float dx = camera.target[0] - camera.position[0];
+            float dy = camera.target[1] - camera.position[1];
+            float dz = camera.target[2] - camera.position[2];
+            float forwardLen = std::sqrt(dx * dx + dy * dy + dz * dz);
+            float fx = 0.0f, fy = -1.0f, fz = 0.0f;
+            if (forwardLen > 0.0001f)
             {
-                if (!CreateGrid(camera, width, height))
-                    return;
+                fx = dx / forwardLen;
+                fy = dy / forwardLen;
+                fz = dz / forwardLen;
             }
-            else
-            {
-                UpdateGrid(camera, width, height);
-            }
-        }
 
-        if (GetProjectSettings().showAxis)
-        {
-            if (axisVertexArray == 0)
+            float rx = camera.up[1] * fz - camera.up[2] * fy;
+            float ry = camera.up[2] * fx - camera.up[0] * fz;
+            float rz = camera.up[0] * fy - camera.up[1] * fx;
+            float rightLen = std::sqrt(rx * rx + ry * ry + rz * rz);
+            if (rightLen > 0.0001f)
             {
-                if (!CreateAxis(camera))
-                    return;
+                rx /= rightLen;
+                ry /= rightLen;
+                rz /= rightLen;
             }
-            else
-            {
-                UpdateAxis(camera);
-            }
+
+            float ux = ry * fz - rz * fy;
+            float uy = rz * fx - rx * fz;
+            float uz = rx * fy - ry * fx;
+
+            constexpr float Pi = 3.14159265358979323846f;
+            float fovRadians = camera.fieldOfView * Pi / 180.0f;
+            float tanHalfFovY = std::tan(fovRadians * 0.5f);
+            float tanHalfFovX =
+                tanHalfFovY *
+                (static_cast<float>(width) / static_cast<float>(height));
+
+            glUseProgram(gridShaderProgram);
+
+            glUniform3f(
+                glGetUniformLocation(gridShaderProgram, "uCameraPos"),
+                camera.position[0], camera.position[1], camera.position[2]
+            );
+            glUniform3f(
+                glGetUniformLocation(gridShaderProgram, "uCameraRight"),
+                rx, ry, rz
+            );
+            glUniform3f(
+                glGetUniformLocation(gridShaderProgram, "uCameraUp"),
+                ux, uy, uz
+            );
+            glUniform3f(
+                glGetUniformLocation(gridShaderProgram, "uCameraForward"),
+                fx, fy, fz
+            );
+            glUniform1f(
+                glGetUniformLocation(gridShaderProgram, "uTanHalfFovX"),
+                tanHalfFovX
+            );
+            glUniform1f(
+                glGetUniformLocation(gridShaderProgram, "uTanHalfFovY"),
+                tanHalfFovY
+            );
+            glUniform1f(
+                glGetUniformLocation(gridShaderProgram, "uGridOpacity"),
+                projectSettings.gridOpacity
+            );
+            glUniform1f(
+                glGetUniformLocation(gridShaderProgram, "uGridRenderDistance"),
+                projectSettings.gridRenderDistance
+            );
+            glUniform3f(
+                glGetUniformLocation(gridShaderProgram, "uBackgroundColor"),
+                projectSettings.backgroundColor[0],
+                projectSettings.backgroundColor[1],
+                projectSettings.backgroundColor[2]
+            );
+
+            // Draw the grid as a full-screen quad. Depth write is disabled
+            // so cubes and axes drawn afterwards can occlude it correctly.
+            glDisable(GL_DEPTH_TEST);
+            glDepthMask(GL_FALSE);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+            glBindVertexArray(gridVAO);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            glDepthMask(GL_TRUE);
+            glEnable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
         }
 
         glUseProgram(shaderProgram);
@@ -697,31 +910,6 @@ namespace CNode
             GL_FALSE,
             viewProjection
         );
-
-        if (projectSettings.showGrid)
-        {
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glEnable(GL_LINE_SMOOTH);
-            glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-
-            if (gridVertexCount > 0 && gridVertexArray != 0)
-            {
-                glLineWidth(1.0f);
-                glBindVertexArray(gridVertexArray);
-                glDrawArrays(GL_LINES, 0, gridVertexCount);
-            }
-
-            if (gridMajorVertexCount > 0 && gridMajorVertexArray != 0)
-            {
-                glLineWidth(2.0f);
-                glBindVertexArray(gridMajorVertexArray);
-                glDrawArrays(GL_LINES, 0, gridMajorVertexCount);
-            }
-
-            glDisable(GL_LINE_SMOOTH);
-            glDisable(GL_BLEND);
-        }
 
         if (projectSettings.showAxis && axisVertexArray != 0)
         {
@@ -873,17 +1061,14 @@ namespace CNode
 
     void SceneRenderer::Shutdown()
     {
-        if (gridVertexBuffer)
-            glDeleteBuffers(1, &gridVertexBuffer);
+        if (gridVBO)
+            glDeleteBuffers(1, &gridVBO);
 
-        if (gridVertexArray)
-            glDeleteVertexArrays(1, &gridVertexArray);
+        if (gridVAO)
+            glDeleteVertexArrays(1, &gridVAO);
 
-        if (gridMajorVertexBuffer)
-            glDeleteBuffers(1, &gridMajorVertexBuffer);
-
-        if (gridMajorVertexArray)
-            glDeleteVertexArrays(1, &gridMajorVertexArray);
+        if (gridShaderProgram)
+            glDeleteProgram(gridShaderProgram);
 
         if (axisVertexBuffer)
             glDeleteBuffers(1, &axisVertexBuffer);
@@ -907,14 +1092,9 @@ namespace CNode
         colorTexture = 0;
         depthBuffer = 0;
         shaderProgram = 0;
-
-        gridVertexArray = 0;
-        gridVertexBuffer = 0;
-        gridVertexCount = 0;
-
-        gridMajorVertexArray = 0;
-        gridMajorVertexBuffer = 0;
-        gridMajorVertexCount = 0;
+        gridShaderProgram = 0;
+        gridVAO = 0;
+        gridVBO = 0;
 
         axisVertexArray = 0;
         axisVertexBuffer = 0;
