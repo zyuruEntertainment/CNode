@@ -16,7 +16,7 @@ namespace CNode
         bool viewportHovered
     )
     {
-        constexpr float minFocusDistance = 0.1f;
+        constexpr float minFocusDistance = 5.0f;
         constexpr float minPitch = -1.55334306f;
         constexpr float maxPitch = 1.55334306f;
         constexpr int startupFramesToIgnore = 2;
@@ -77,6 +77,9 @@ namespace CNode
 
         if (focusDistance < minFocusDistance)
             focusDistance = minFocusDistance;
+
+        if (focusDistance > 100.0f)
+            focusDistance = 100.0f;
 
         const float directionLength = std::sqrt(
             forwardX * forwardX +

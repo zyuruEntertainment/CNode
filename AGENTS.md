@@ -47,16 +47,17 @@ CNode is a C++20 node-based game engine (GLFW + Dear ImGui + OpenGL). Single exe
 - `src/tab/windows/scene_editor/scene_renderer.cpp` renders the grid with a procedural fragment shader (`CreateGridShader()`), replacing the old CPU line-generation approach (`scene_grid.cpp` is now a stub).
 - The shader draws a full-screen quad and computes a ray-plane intersection with the XZ ground plane (Y=0) per fragment. No depth texture is needed — the world position is derived analytically from the camera basis and NDC.
 - Grid lines are computed in world space using `fract(x/spacing)` and `fract(z/spacing)`, with `fwidth()`-based anti-aliasing for stable line coverage at grazing angles.
-- **Adaptive LOD**: spacing is distance-based power-of-two (`spacing = pow(2, floor(log2(dist) * 0.5))`), clamped to [0.25, 256]. This keeps visual line density stable and prevents dense horizon bands without camera-direction conditions.
+- **Adaptive LOD (global, not per-fragment):** spacing is derived from the camera's view scale (distance to target and FOV), then snapped to adjacent powers of two. The same spacing is used for every fragment, which eliminates the concentric LOD rings caused by per-fragment distance-based spacing. Two adjacent scales are blended with a global mix factor for smooth zoom transitions.
 - Major lines every 10th subdivision are brighter; they remain visible longer than minor lines.
 - Distance fading: `smoothstep(renderDistance * 0.5, renderDistance, dist)`, inverted so near = clear, far = background.
 - Horizon/grazing fade: `smoothstep(0.0, 0.2, abs(rayDir.y))` prevents compressed lines near the horizon.
-- Line edge width: `fwidth(grid) * 0.5 + 0.01` for thin crisp minor lines; same formula for major lines.
+- Line edge width: derivative-only (`dist / fwidth`) with `smoothstep(0, 1, ...)`, no arbitrary `+0.01` multipliers.
 - Grid combine: `max(minorGrid, majorGrid)` (no `* 1.6` multiplier — avoids glowing bands). Major lines use a single mix with brighter color `{0.30, 0.33, 0.40}` — no double blending.
 - Both X and Z grid families are always rendered — camera azimuth never disables either family. This is a regression guard from the earlier camera-direction-scaling bug.
 - Grid is drawn first with depth write disabled, so axes and cubes occlude it correctly.
 - Rendered with `GL_SRC_ALPHA`/`GL_ONE_MINUS_SRC_ALPHA` blending (no `GL_LINE_SMOOTH` — the shader handles anti-aliasing analytically).
 - Grid color: minor {0.18, 0.20, 0.25}, major {0.30, 0.33, 0.40}, blended against background {0.075, 0.085, 0.10}.
+- World axes: restored in `scene_axis.cpp` / `scene_renderer.cpp`. Axis buffer is created lazily on first render and updated each frame; colors are pure red (X), green (Y), blue (Z); all three intersect at origin. Axes render separately from the grid shader via the basic line shader.
 
 ## Camera navigation (regression guard)
 

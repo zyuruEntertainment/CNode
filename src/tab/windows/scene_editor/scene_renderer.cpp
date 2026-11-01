@@ -835,6 +835,11 @@ namespace CNode
             if (camDist < 0.001f)
                 camDist = 1.0f;
 
+            // Clamp the distance used for grid spacing so the grid does not
+            // become excessively sparse when the camera is zoomed far out.
+            if (camDist > 80.0f)
+                camDist = 80.0f;
+
             float viewSize = camDist * tanHalfFovY * 2.0f;
             if (viewSize < 0.001f)
                 viewSize = 1.0f;

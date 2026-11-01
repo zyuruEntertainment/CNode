@@ -18,6 +18,6 @@ namespace CNode
         float zoomSpeed = 0.15f;
 
         float minDistance = 0.25f;
-        float maxDistance = 500.0f;
+        float maxDistance = 200.0f;
     };
 }
